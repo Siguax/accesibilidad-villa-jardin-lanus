@@ -403,7 +403,7 @@ y veamoslo en un mapa interactivo usando Leaflet usando la información  geográ
 
 ```{r}
 leaflet(villa_Jardin) %>%
-  addTiles() %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
   addPolygons(popup = "Villa Jardín")
 ```
 
@@ -479,12 +479,10 @@ ggmap(mapa_Lanus) +
 
 
 Vamos a ver un mapa interactivo para ver la ubicación de los establecimientos en el partido de Lanús.
+
 ```{r}
 leaflet(hospitales_Lanus) %>%
-  addTiles(
-    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    options = tileOptions(attribution = "© OpenStreetMap contributors")
-  ) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
   addMarkers(~long, ~lat,
              popup = ~nor) 
 ```
@@ -493,7 +491,7 @@ Recordemos donde esta ubicado el barrio de Villa Jardín;
 
 ```{r}
 leaflet(villa_Jardin) %>%
-  addTiles() %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
   addPolygons(popup = "Villa Jardín")
 ```
 
@@ -583,18 +581,12 @@ Vemos las áreas en las que se encuentran a 20, 15,10 y 5 minutos respectivament
 Al mapa de Isócronas le agregamos la ubicación del centro geográfico de Villa Jardín.
 ```{r}
 leaflet(isocrona) %>%
-  addTiles(
-    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    options = tileOptions(attribution = "© OpenStreetMap contributors")
-  ) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
   addPolygons(fillColor = ~colorBin("YlOrRd", domain = isocrona$isomax)(isomax),
-              color = NA,
-              fillOpacity = 0.5) %>%
-  addMarkers(data = centroide) %>%
-  addMiniMap(
-    tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    toggleDisplay = TRUE
-  )
+  color = NA,
+  fillOpacity = 0.5) %>%
+  addMarkers(data=centroide)%>%
+  addMiniMap(tiles=providers$CartoDB.Positron)
 ```
 
 
@@ -653,22 +645,16 @@ Podemos ver que solamente hay un centro de salud a 5 minutos a pié y la mayorí
 Veamos un mapa interactivo.
 ```{r}
 leaflet(isocrona) %>%
-  addTiles(
-    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    options = tileOptions(attribution = "© OpenStreetMap contributors")
-  ) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
   addPolygons(fillColor = ~colorBin("YlOrRd", domain = isocrona$isomax)(isomax),
-              color = NA,
-              fillOpacity = 0.5) %>%
-  addMarkers(data = centroide,
+  color = NA,
+  fillOpacity = 0.5) %>%
+  addMarkers(data=centroide,
              popup = "Villa Jardín") %>%
-  addCircles(data = hospitales_geo,
+  addCircles(data=hospitales_geo,
              popup = ~nor,
-             color = "black") %>%
-  addMiniMap(
-    tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    toggleDisplay = TRUE
-  )
+             color = "black")%>%
+  addMiniMap(tiles=providers$CartoDB.Positron)
 ```
 
 **Calculemos las distancias y duraciones de los centros/Unidades de salud de Villa Jardín**
@@ -782,20 +768,17 @@ Visualizemos en el mapa los recorridos de los 6 centros sanitarios situados a me
 
 ```{r}
 leaflet(ruteo2) %>% 
-  addTiles(
-    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    options = tileOptions(attribution = "© OpenStreetMap contributors")
-  ) %>%
-  addPolylines(color = "#D55E00",
-               label = paste("Distancia:", ruteo2$distance, "|", 
-                             "Duración:", ruteo2$duration)) %>%
-  addCircleMarkers(data = coords, ~X, ~Y,
+    addProviderTiles(providers$CartoDB.DarkMatter) %>% 
+    addPolylines(color = "#D55E00",
+                 label = paste("Distancia:", ruteo2$distance, "|", 
+                               "Duración:", ruteo2$duration))%>%
+  addCircleMarkers(data=coords, ~X, ~Y,
                    popup = "Villa Jardín",
-                   color = "white") %>%
-  addCircleMarkers(data = hospitales_geo, ~long, ~lat,
+                   color="white") %>%
+  addCircleMarkers(data=hospitales_geo, ~long, ~lat,
                    popup = ~nor,
-                   color = "gray") %>%
-  addMiniMap(toggleDisplay = TRUE)
+                   color="gray") %>%
+  addMiniMap(tiles=providers$CartoDB.DarkMatter)
 ```
 
 <u>**Conclusión**</u>

@@ -4289,6 +4289,1189 @@ function asArray(value) {
 
 },{}]},{},[13]);
 </script>
+<script>(function (root, factory) {
+	if (typeof define === 'function' && define.amd) {
+		// AMD. Register as an anonymous module.
+		define(['leaflet'], factory);
+	} else if (typeof modules === 'object' && module.exports) {
+		// define a Common JS module that relies on 'leaflet'
+		module.exports = factory(require('leaflet'));
+	} else {
+		// Assume Leaflet is loaded into global object L already
+		factory(L);
+	}
+}(this, function (L) {
+	'use strict';
+
+	L.TileLayer.Provider = L.TileLayer.extend({
+		initialize: function (arg, options) {
+			var providers = L.TileLayer.Provider.providers;
+
+			var parts = arg.split('.');
+
+			var providerName = parts[0];
+			var variantName = parts[1];
+
+			if (!providers[providerName]) {
+				throw 'No such provider (' + providerName + ')';
+			}
+
+			var provider = {
+				url: providers[providerName].url,
+				options: providers[providerName].options
+			};
+
+			// overwrite values in provider from variant.
+			if (variantName && 'variants' in providers[providerName]) {
+				if (!(variantName in providers[providerName].variants)) {
+					throw 'No such variant of ' + providerName + ' (' + variantName + ')';
+				}
+				var variant = providers[providerName].variants[variantName];
+				var variantOptions;
+				if (typeof variant === 'string') {
+					variantOptions = {
+						variant: variant
+					};
+				} else {
+					variantOptions = variant.options;
+				}
+				provider = {
+					url: variant.url || provider.url,
+					options: L.Util.extend({}, provider.options, variantOptions)
+				};
+			}
+
+			// replace attribution placeholders with their values from toplevel provider attribution,
+			// recursively
+			var attributionReplacer = function (attr) {
+				if (attr.indexOf('{attribution.') === -1) {
+					return attr;
+				}
+				return attr.replace(/\{attribution.(\w*)\}/g,
+					function (match, attributionName) {
+						return attributionReplacer(providers[attributionName].options.attribution);
+					}
+				);
+			};
+			provider.options.attribution = attributionReplacer(provider.options.attribution);
+
+			// Compute final options combining provider options with any user overrides
+			var layerOpts = L.Util.extend({}, provider.options, options);
+			L.TileLayer.prototype.initialize.call(this, provider.url, layerOpts);
+		}
+	});
+
+	/**
+	 * Definition of providers.
+	 * see http://leafletjs.com/reference.html#tilelayer for options in the options map.
+	 */
+
+	L.TileLayer.Provider.providers = {
+		OpenStreetMap: {
+			url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 19,
+				attribution:
+					'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+			},
+			variants: {
+				Mapnik: {},
+				DE: {
+					url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+					options: {
+						maxZoom: 18
+					}
+				},
+				CH: {
+					url: 'https://tile.osm.ch/switzerland/{z}/{x}/{y}.png',
+					options: {
+						maxZoom: 18,
+						bounds: [[45, 5], [48, 11]]
+					}
+				},
+				France: {
+					url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+					options: {
+						maxZoom: 20,
+						attribution: '&copy; OpenStreetMap France | {attribution.OpenStreetMap}'
+					}
+				},
+				HOT: {
+					url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+					options: {
+						attribution:
+							'{attribution.OpenStreetMap}, ' +
+							'Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a> ' +
+							'hosted by <a href="https://openstreetmap.fr/" target="_blank">OpenStreetMap France</a>'
+					}
+				},
+				BZH: {
+					url: 'https://tile.openstreetmap.bzh/br/{z}/{x}/{y}.png',
+					options: {
+						attribution: '{attribution.OpenStreetMap}, Tiles courtesy of <a href="http://www.openstreetmap.bzh/" target="_blank">Breton OpenStreetMap Team</a>',
+						bounds: [[46.2, -5.5], [50, 0.7]]
+					}
+				}
+			}
+		},
+		MapTilesAPI: {
+			url: 'https://maptiles.p.rapidapi.com/{variant}/{z}/{x}/{y}.png?rapidapi-key={apikey}',
+			options: {
+				attribution:
+					'&copy; <a href="http://www.maptilesapi.com/">MapTiles API</a>, {attribution.OpenStreetMap}',
+				variant: 'en/map/v1',
+				// Get your own MapTiles API access token here : https://www.maptilesapi.com/
+				// NB : this is a demonstration key that comes with no guarantee and not to be used in production
+				apikey: '<insert your api key here>',
+				maxZoom: 19
+			},
+			variants: {
+				OSMEnglish: {
+					options: {
+						variant: 'en/map/v1'
+					}
+				},
+				OSMFrancais: {
+					options: {
+						variant: 'fr/map/v1'
+					}
+				},
+				OSMEspagnol: {
+					options: {
+						variant: 'es/map/v1'
+					}
+				}
+			}
+		},
+		OpenSeaMap: {
+			url: 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+			options: {
+				attribution: 'Map data: &copy; <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
+			}
+		},
+		OPNVKarte: {
+			url: 'https://tileserver.memomaps.de/tilegen/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 18,
+				attribution: 'Map <a href="https://memomaps.de/">memomaps.de</a> <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, map data {attribution.OpenStreetMap}'
+			}
+		},
+		OpenTopoMap: {
+			url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 17,
+				attribution: 'Map data: {attribution.OpenStreetMap}, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+			}
+		},
+		OpenRailwayMap: {
+			url: 'https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 19,
+				attribution: 'Map data: {attribution.OpenStreetMap} | Map style: &copy; <a href="https://www.OpenRailwayMap.org">OpenRailwayMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+			}
+		},
+		OpenFireMap: {
+			url: 'http://openfiremap.org/hytiles/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 19,
+				attribution: 'Map data: {attribution.OpenStreetMap} | Map style: &copy; <a href="http://www.openfiremap.org">OpenFireMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+			}
+		},
+		SafeCast: {
+			url: 'https://s3.amazonaws.com/te512.safecast.org/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 16,
+				attribution: 'Map data: {attribution.OpenStreetMap} | Map style: &copy; <a href="https://blog.safecast.org/about/">SafeCast</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+			}
+		},
+		Stadia: {
+			url: 'https://tiles.stadiamaps.com/tiles/{variant}/{z}/{x}/{y}{r}.{ext}',
+			options: {
+				minZoom: 0,
+				maxZoom: 20,
+				attribution:
+					'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+					'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+					'{attribution.OpenStreetMap}',
+				variant: 'alidade_smooth',
+				ext: 'png'
+			},
+			variants: {
+				AlidadeSmooth: 'alidade_smooth',
+				AlidadeSmoothDark: 'alidade_smooth_dark',
+				OSMBright: 'osm_bright',
+				Outdoors: 'outdoors',
+				StamenToner: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_toner'
+					}
+				},
+				StamenTonerBackground: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_toner_background'
+					}
+				},
+				StamenTonerLines: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_toner_lines'
+					}
+				},
+				StamenTonerLabels: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_toner_labels'
+					}
+				},
+				StamenTonerLite: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_toner_lite'
+					}
+				},
+				StamenWatercolor: {
+					url: 'https://tiles.stadiamaps.com/tiles/{variant}/{z}/{x}/{y}.{ext}',
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_watercolor',
+						ext: 'jpg',
+						minZoom: 1,
+						maxZoom: 16
+					}
+				},
+				StamenTerrain: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_terrain',
+						minZoom: 0,
+						maxZoom: 18
+					}
+				},
+				StamenTerrainBackground: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_terrain_background',
+						minZoom: 0,
+						maxZoom: 18
+					}
+				},
+				StamenTerrainLabels: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_terrain_labels',
+						minZoom: 0,
+						maxZoom: 18
+					}
+				},
+				StamenTerrainLines: {
+					options: {
+						attribution:
+							'&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> ' +
+							'&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> ' +
+							'&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' +
+							'{attribution.OpenStreetMap}',
+						variant: 'stamen_terrain_lines',
+						minZoom: 0,
+						maxZoom: 18
+					}
+				}
+			}
+		},
+		Thunderforest: {
+			url: 'https://{s}.tile.thunderforest.com/{variant}/{z}/{x}/{y}.png?apikey={apikey}',
+			options: {
+				attribution:
+					'&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, {attribution.OpenStreetMap}',
+				variant: 'cycle',
+				apikey: '<insert your api key here>',
+				maxZoom: 22
+			},
+			variants: {
+				OpenCycleMap: 'cycle',
+				Transport: {
+					options: {
+						variant: 'transport'
+					}
+				},
+				TransportDark: {
+					options: {
+						variant: 'transport-dark'
+					}
+				},
+				SpinalMap: {
+					options: {
+						variant: 'spinal-map'
+					}
+				},
+				Landscape: 'landscape',
+				Outdoors: 'outdoors',
+				Pioneer: 'pioneer',
+				MobileAtlas: 'mobile-atlas',
+				Neighbourhood: 'neighbourhood'
+			}
+		},
+		CyclOSM: {
+			url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 20,
+				attribution: '<a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases" title="CyclOSM - Open Bicycle render">CyclOSM</a> | Map data: {attribution.OpenStreetMap}'
+			}
+		},
+		Jawg: {
+			url: 'https://{s}.tile.jawg.io/{variant}/{z}/{x}/{y}{r}.png?access-token={accessToken}',
+			options: {
+				attribution:
+					'<a href="http://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; <b>Jawg</b>Maps</a> ' +
+					'{attribution.OpenStreetMap}',
+				minZoom: 0,
+				maxZoom: 22,
+				subdomains: 'abcd',
+				variant: 'jawg-terrain',
+				// Get your own Jawg access token here : https://www.jawg.io/lab/
+				// NB : this is a demonstration key that comes with no guarantee
+				accessToken: '<insert your access token here>',
+			},
+			variants: {
+				Streets: 'jawg-streets',
+				Terrain: 'jawg-terrain',
+				Sunny: 'jawg-sunny',
+				Dark: 'jawg-dark',
+				Light: 'jawg-light',
+				Matrix: 'jawg-matrix'
+			}
+		},
+		MapBox: {
+			url: 'https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}{r}?access_token={accessToken}',
+			options: {
+				attribution:
+					'&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> ' +
+					'{attribution.OpenStreetMap} ' +
+					'<a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve this map</a>',
+				tileSize: 512,
+				maxZoom: 18,
+				zoomOffset: -1,
+				id: 'mapbox/streets-v11',
+				accessToken: '<insert your access token here>',
+			}
+		},
+		MapTiler: {
+			url: 'https://api.maptiler.com/maps/{variant}/{z}/{x}/{y}{r}.{ext}?key={key}',
+			options: {
+				attribution:
+					'<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>',
+				variant: 'streets',
+				ext: 'png',
+				key: '<insert your MapTiler Cloud API key here>',
+				tileSize: 512,
+				zoomOffset: -1,
+				minZoom: 0,
+				maxZoom: 21
+			},
+			variants: {
+				Streets: 'streets',
+				Basic: 'basic',
+				Bright: 'bright',
+				Pastel: 'pastel',
+				Positron: 'positron',
+				Hybrid: {
+					options: {
+						variant: 'hybrid',
+						ext: 'jpg'
+					}
+				},
+				Toner: 'toner',
+				Topo: 'topo',
+				Voyager: 'voyager'
+			}
+		},
+		TomTom: {
+			url: 'https://{s}.api.tomtom.com/map/1/tile/{variant}/{style}/{z}/{x}/{y}.{ext}?key={apikey}',
+			options: {
+				variant: 'basic',
+				maxZoom: 22,
+				attribution:
+					'<a href="https://tomtom.com" target="_blank">&copy;  1992 - ' + new Date().getFullYear() + ' TomTom.</a> ',
+				subdomains: 'abcd',
+				style: 'main',
+				ext: 'png',
+				apikey: '<insert your API key here>',
+			},
+			variants: {
+				Basic: 'basic',
+				Hybrid: 'hybrid',
+				Labels: 'labels'
+			}
+		},
+		Esri: {
+			url: 'https://server.arcgisonline.com/ArcGIS/rest/services/{variant}/MapServer/tile/{z}/{y}/{x}',
+			options: {
+				variant: 'World_Street_Map',
+				attribution: 'Tiles &copy; Esri'
+			},
+			variants: {
+				WorldStreetMap: {
+					options: {
+						attribution:
+							'{attribution.Esri} &mdash; ' +
+							'Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012'
+					}
+				},
+				DeLorme: {
+					options: {
+						variant: 'Specialty/DeLorme_World_Base_Map',
+						minZoom: 1,
+						maxZoom: 11,
+						attribution: '{attribution.Esri} &mdash; Copyright: &copy;2012 DeLorme'
+					}
+				},
+				WorldTopoMap: {
+					options: {
+						variant: 'World_Topo_Map',
+						attribution:
+							'{attribution.Esri} &mdash; ' +
+							'Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+					}
+				},
+				WorldImagery: {
+					options: {
+						variant: 'World_Imagery',
+						attribution:
+							'{attribution.Esri} &mdash; ' +
+							'Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+					}
+				},
+				WorldTerrain: {
+					options: {
+						variant: 'World_Terrain_Base',
+						maxZoom: 13,
+						attribution:
+							'{attribution.Esri} &mdash; ' +
+							'Source: USGS, Esri, TANA, DeLorme, and NPS'
+					}
+				},
+				WorldShadedRelief: {
+					options: {
+						variant: 'World_Shaded_Relief',
+						maxZoom: 13,
+						attribution: '{attribution.Esri} &mdash; Source: Esri'
+					}
+				},
+				WorldPhysical: {
+					options: {
+						variant: 'World_Physical_Map',
+						maxZoom: 8,
+						attribution: '{attribution.Esri} &mdash; Source: US National Park Service'
+					}
+				},
+				OceanBasemap: {
+					options: {
+						variant: 'Ocean/World_Ocean_Base',
+						maxZoom: 13,
+						attribution: '{attribution.Esri} &mdash; Sources: GEBCO, NOAA, CHS, OSU, UNH, CSUMB, National Geographic, DeLorme, NAVTEQ, and Esri'
+					}
+				},
+				NatGeoWorldMap: {
+					options: {
+						variant: 'NatGeo_World_Map',
+						maxZoom: 16,
+						attribution: '{attribution.Esri} &mdash; National Geographic, Esri, DeLorme, NAVTEQ, UNEP-WCMC, USGS, NASA, ESA, METI, NRCAN, GEBCO, NOAA, iPC'
+					}
+				},
+				WorldGrayCanvas: {
+					options: {
+						variant: 'Canvas/World_Light_Gray_Base',
+						maxZoom: 16,
+						attribution: '{attribution.Esri} &mdash; Esri, DeLorme, NAVTEQ'
+					}
+				}
+			}
+		},
+		OpenWeatherMap: {
+			url: 'http://{s}.tile.openweathermap.org/map/{variant}/{z}/{x}/{y}.png?appid={apiKey}',
+			options: {
+				maxZoom: 19,
+				attribution: 'Map data &copy; <a href="http://openweathermap.org">OpenWeatherMap</a>',
+				apiKey: '<insert your api key here>',
+				opacity: 0.5
+			},
+			variants: {
+				Clouds: 'clouds',
+				CloudsClassic: 'clouds_cls',
+				Precipitation: 'precipitation',
+				PrecipitationClassic: 'precipitation_cls',
+				Rain: 'rain',
+				RainClassic: 'rain_cls',
+				Pressure: 'pressure',
+				PressureContour: 'pressure_cntr',
+				Wind: 'wind',
+				Temperature: 'temp',
+				Snow: 'snow'
+			}
+		},
+		HERE: {
+			/*
+			 * HERE maps, formerly Nokia maps.
+			 * These basemaps are free, but you need an api id and app key. Please sign up at
+			 * https://developer.here.com/plans
+			 */
+			url:
+				'https://{s}.{base}.maps.api.here.com/maptile/2.1/' +
+				'{type}/{mapID}/{variant}/{z}/{x}/{y}/{size}/{format}?' +
+				'app_id={app_id}&app_code={app_code}&lg={language}',
+			options: {
+				attribution:
+					'Map &copy; 1987-' + new Date().getFullYear() + ' <a href="http://developer.here.com">HERE</a>',
+				subdomains: '1234',
+				mapID: 'newest',
+				'app_id': '<insert your app_id here>',
+				'app_code': '<insert your app_code here>',
+				base: 'base',
+				variant: 'normal.day',
+				maxZoom: 20,
+				type: 'maptile',
+				language: 'eng',
+				format: 'png8',
+				size: '256'
+			},
+			variants: {
+				normalDay: 'normal.day',
+				normalDayCustom: 'normal.day.custom',
+				normalDayGrey: 'normal.day.grey',
+				normalDayMobile: 'normal.day.mobile',
+				normalDayGreyMobile: 'normal.day.grey.mobile',
+				normalDayTransit: 'normal.day.transit',
+				normalDayTransitMobile: 'normal.day.transit.mobile',
+				normalDayTraffic: {
+					options: {
+						variant: 'normal.traffic.day',
+						base: 'traffic',
+						type: 'traffictile'
+					}
+				},
+				normalNight: 'normal.night',
+				normalNightMobile: 'normal.night.mobile',
+				normalNightGrey: 'normal.night.grey',
+				normalNightGreyMobile: 'normal.night.grey.mobile',
+				normalNightTransit: 'normal.night.transit',
+				normalNightTransitMobile: 'normal.night.transit.mobile',
+				reducedDay: 'reduced.day',
+				reducedNight: 'reduced.night',
+				basicMap: {
+					options: {
+						type: 'basetile'
+					}
+				},
+				mapLabels: {
+					options: {
+						type: 'labeltile',
+						format: 'png'
+					}
+				},
+				trafficFlow: {
+					options: {
+						base: 'traffic',
+						type: 'flowtile'
+					}
+				},
+				carnavDayGrey: 'carnav.day.grey',
+				hybridDay: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.day'
+					}
+				},
+				hybridDayMobile: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.day.mobile'
+					}
+				},
+				hybridDayTransit: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.day.transit'
+					}
+				},
+				hybridDayGrey: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.grey.day'
+					}
+				},
+				hybridDayTraffic: {
+					options: {
+						variant: 'hybrid.traffic.day',
+						base: 'traffic',
+						type: 'traffictile'
+					}
+				},
+				pedestrianDay: 'pedestrian.day',
+				pedestrianNight: 'pedestrian.night',
+				satelliteDay: {
+					options: {
+						base: 'aerial',
+						variant: 'satellite.day'
+					}
+				},
+				terrainDay: {
+					options: {
+						base: 'aerial',
+						variant: 'terrain.day'
+					}
+				},
+				terrainDayMobile: {
+					options: {
+						base: 'aerial',
+						variant: 'terrain.day.mobile'
+					}
+				}
+			}
+		},
+		HEREv3: {
+			/*
+			 * HERE maps API Version 3.
+			 * These basemaps are free, but you need an API key. Please sign up at
+			 * https://developer.here.com/plans
+			 * Version 3 deprecates the app_id and app_code access in favor of apiKey
+			 *
+			 * Supported access methods as of 2019/12/21:
+			 * @see https://developer.here.com/faqs#access-control-1--how-do-you-control-access-to-here-location-services
+			 */
+			url:
+				'https://{s}.{base}.maps.ls.hereapi.com/maptile/2.1/' +
+				'{type}/{mapID}/{variant}/{z}/{x}/{y}/{size}/{format}?' +
+				'apiKey={apiKey}&lg={language}',
+			options: {
+				attribution:
+					'Map &copy; 1987-' + new Date().getFullYear() + ' <a href="http://developer.here.com">HERE</a>',
+				subdomains: '1234',
+				mapID: 'newest',
+				apiKey: '<insert your apiKey here>',
+				base: 'base',
+				variant: 'normal.day',
+				maxZoom: 20,
+				type: 'maptile',
+				language: 'eng',
+				format: 'png8',
+				size: '256'
+			},
+			variants: {
+				normalDay: 'normal.day',
+				normalDayCustom: 'normal.day.custom',
+				normalDayGrey: 'normal.day.grey',
+				normalDayMobile: 'normal.day.mobile',
+				normalDayGreyMobile: 'normal.day.grey.mobile',
+				normalDayTransit: 'normal.day.transit',
+				normalDayTransitMobile: 'normal.day.transit.mobile',
+				normalNight: 'normal.night',
+				normalNightMobile: 'normal.night.mobile',
+				normalNightGrey: 'normal.night.grey',
+				normalNightGreyMobile: 'normal.night.grey.mobile',
+				normalNightTransit: 'normal.night.transit',
+				normalNightTransitMobile: 'normal.night.transit.mobile',
+				reducedDay: 'reduced.day',
+				reducedNight: 'reduced.night',
+				basicMap: {
+					options: {
+						type: 'basetile'
+					}
+				},
+				mapLabels: {
+					options: {
+						type: 'labeltile',
+						format: 'png'
+					}
+				},
+				trafficFlow: {
+					options: {
+						base: 'traffic',
+						type: 'flowtile'
+					}
+				},
+				carnavDayGrey: 'carnav.day.grey',
+				hybridDay: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.day'
+					}
+				},
+				hybridDayMobile: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.day.mobile'
+					}
+				},
+				hybridDayTransit: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.day.transit'
+					}
+				},
+				hybridDayGrey: {
+					options: {
+						base: 'aerial',
+						variant: 'hybrid.grey.day'
+					}
+				},
+				pedestrianDay: 'pedestrian.day',
+				pedestrianNight: 'pedestrian.night',
+				satelliteDay: {
+					options: {
+						base: 'aerial',
+						variant: 'satellite.day'
+					}
+				},
+				terrainDay: {
+					options: {
+						base: 'aerial',
+						variant: 'terrain.day'
+					}
+				},
+				terrainDayMobile: {
+					options: {
+						base: 'aerial',
+						variant: 'terrain.day.mobile'
+					}
+				}
+			}
+		},
+		FreeMapSK: {
+			url: 'https://{s}.freemap.sk/T/{z}/{x}/{y}.jpeg',
+			options: {
+				minZoom: 8,
+				maxZoom: 16,
+				subdomains: 'abcd',
+				bounds: [[47.204642, 15.996093], [49.830896, 22.576904]],
+				attribution:
+					'{attribution.OpenStreetMap}, visualization CC-By-SA 2.0 <a href="http://freemap.sk">Freemap.sk</a>'
+			}
+		},
+		MtbMap: {
+			url: 'http://tile.mtbmap.cz/mtbmap_tiles/{z}/{x}/{y}.png',
+			options: {
+				attribution:
+					'{attribution.OpenStreetMap} &amp; USGS'
+			}
+		},
+		CartoDB: {
+			url: 'https://{s}.basemaps.cartocdn.com/{variant}/{z}/{x}/{y}{r}.png',
+			options: {
+				attribution: '{attribution.OpenStreetMap} &copy; <a href="https://carto.com/attributions">CARTO</a>',
+				subdomains: 'abcd',
+				maxZoom: 20,
+				variant: 'light_all'
+			},
+			variants: {
+				Positron: 'light_all',
+				PositronNoLabels: 'light_nolabels',
+				PositronOnlyLabels: 'light_only_labels',
+				DarkMatter: 'dark_all',
+				DarkMatterNoLabels: 'dark_nolabels',
+				DarkMatterOnlyLabels: 'dark_only_labels',
+				Voyager: 'rastertiles/voyager',
+				VoyagerNoLabels: 'rastertiles/voyager_nolabels',
+				VoyagerOnlyLabels: 'rastertiles/voyager_only_labels',
+				VoyagerLabelsUnder: 'rastertiles/voyager_labels_under'
+			}
+		},
+		HikeBike: {
+			url: 'https://tiles.wmflabs.org/{variant}/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 19,
+				attribution: '{attribution.OpenStreetMap}',
+				variant: 'hikebike'
+			},
+			variants: {
+				HikeBike: {},
+				HillShading: {
+					options: {
+						maxZoom: 15,
+						variant: 'hillshading'
+					}
+				}
+			}
+		},
+		BasemapAT: {
+			url: 'https://mapsneu.wien.gv.at/basemap/{variant}/{type}/google3857/{z}/{y}/{x}.{format}',
+			options: {
+				maxZoom: 19,
+				attribution: 'Datenquelle: <a href="https://www.basemap.at">basemap.at</a>',
+				type: 'normal',
+				format: 'png',
+				bounds: [[46.358770, 8.782379], [49.037872, 17.189532]],
+				variant: 'geolandbasemap'
+			},
+			variants: {
+				basemap: {
+					options: {
+						maxZoom: 20, // currently only in Vienna
+						variant: 'geolandbasemap'
+					}
+				},
+				grau: 'bmapgrau',
+				overlay: 'bmapoverlay',
+				terrain: {
+					options: {
+						variant: 'bmapgelaende',
+						type: 'grau',
+						format: 'jpeg'
+					}
+				},
+				surface: {
+					options: {
+						variant: 'bmapoberflaeche',
+						type: 'grau',
+						format: 'jpeg'
+					}
+				},
+				highdpi: {
+					options: {
+						variant: 'bmaphidpi',
+						format: 'jpeg'
+					}
+				},
+				orthofoto: {
+					options: {
+						maxZoom: 20, // currently only in Vienna
+						variant: 'bmaporthofoto30cm',
+						format: 'jpeg'
+					}
+				}
+			}
+		},
+		nlmaps: {
+			url: 'https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/{variant}/EPSG:3857/{z}/{x}/{y}.png',
+			options: {
+				minZoom: 6,
+				maxZoom: 19,
+				bounds: [[50.5, 3.25], [54, 7.6]],
+				attribution: 'Kaartgegevens &copy; <a href="https://www.kadaster.nl">Kadaster</a>'
+			},
+			variants: {
+				'standaard': 'standaard',
+				'pastel': 'pastel',
+				'grijs': 'grijs',
+				'water': 'water',
+				'luchtfoto': {
+					'url': 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg',
+				}
+			}
+		},
+		NASAGIBS: {
+			url: 'https://map1.vis.earthdata.nasa.gov/wmts-webmerc/{variant}/default/{time}/{tilematrixset}{maxZoom}/{z}/{y}/{x}.{format}',
+			options: {
+				attribution:
+					'Imagery provided by services from the Global Imagery Browse Services (GIBS), operated by the NASA/GSFC/Earth Science Data and Information System ' +
+					'(<a href="https://earthdata.nasa.gov">ESDIS</a>) with funding provided by NASA/HQ.',
+				bounds: [[-85.0511287776, -179.999999975], [85.0511287776, 179.999999975]],
+				minZoom: 1,
+				maxZoom: 9,
+				format: 'jpg',
+				time: '',
+				tilematrixset: 'GoogleMapsCompatible_Level'
+			},
+			variants: {
+				ModisTerraTrueColorCR: 'MODIS_Terra_CorrectedReflectance_TrueColor',
+				ModisTerraBands367CR: 'MODIS_Terra_CorrectedReflectance_Bands367',
+				ViirsEarthAtNight2012: {
+					options: {
+						variant: 'VIIRS_CityLights_2012',
+						maxZoom: 8
+					}
+				},
+				ModisTerraLSTDay: {
+					options: {
+						variant: 'MODIS_Terra_Land_Surface_Temp_Day',
+						format: 'png',
+						maxZoom: 7,
+						opacity: 0.75
+					}
+				},
+				ModisTerraSnowCover: {
+					options: {
+						variant: 'MODIS_Terra_NDSI_Snow_Cover',
+						format: 'png',
+						maxZoom: 8,
+						opacity: 0.75
+					}
+				},
+				ModisTerraAOD: {
+					options: {
+						variant: 'MODIS_Terra_Aerosol',
+						format: 'png',
+						maxZoom: 6,
+						opacity: 0.75
+					}
+				},
+				ModisTerraChlorophyll: {
+					options: {
+						variant: 'MODIS_Terra_Chlorophyll_A',
+						format: 'png',
+						maxZoom: 7,
+						opacity: 0.75
+					}
+				}
+			}
+		},
+		NLS: {
+			// NLS maps are copyright National library of Scotland.
+			// http://maps.nls.uk/projects/api/index.html
+			// Please contact NLS for anything other than non-commercial low volume usage
+			//
+			// Map sources: Ordnance Survey 1:1m to 1:63K, 1920s-1940s
+			//   z0-9  - 1:1m
+			//  z10-11 - quarter inch (1:253440)
+			//  z12-18 - one inch (1:63360)
+			url: 'https://nls-{s}.tileserver.com/nls/{z}/{x}/{y}.jpg',
+			options: {
+				attribution: '<a href="http://geo.nls.uk/maps/">National Library of Scotland Historic Maps</a>',
+				bounds: [[49.6, -12], [61.7, 3]],
+				minZoom: 1,
+				maxZoom: 18,
+				subdomains: '0123',
+			}
+		},
+		JusticeMap: {
+			// Justice Map (http://www.justicemap.org/)
+			// Visualize race and income data for your community, county and country.
+			// Includes tools for data journalists, bloggers and community activists.
+			url: 'https://www.justicemap.org/tile/{size}/{variant}/{z}/{x}/{y}.png',
+			options: {
+				attribution: '<a href="http://www.justicemap.org/terms.php">Justice Map</a>',
+				// one of 'county', 'tract', 'block'
+				size: 'county',
+				// Bounds for USA, including Alaska and Hawaii
+				bounds: [[14, -180], [72, -56]]
+			},
+			variants: {
+				income: 'income',
+				americanIndian: 'indian',
+				asian: 'asian',
+				black: 'black',
+				hispanic: 'hispanic',
+				multi: 'multi',
+				nonWhite: 'nonwhite',
+				white: 'white',
+				plurality: 'plural'
+			}
+		},
+		GeoportailFrance: {
+			url: 'https://wxs.ign.fr/{apikey}/geoportail/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE={style}&TILEMATRIXSET=PM&FORMAT={format}&LAYER={variant}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+			options: {
+				attribution: '<a target="_blank" href="https://www.geoportail.gouv.fr/">Geoportail France</a>',
+				bounds: [[-75, -180], [81, 180]],
+				minZoom: 2,
+				maxZoom: 18,
+				// Get your own geoportail apikey here : http://professionnels.ign.fr/ign/contrats/
+				// NB : 'choisirgeoportail' is a demonstration key that comes with no guarantee
+				apikey: 'choisirgeoportail',
+				format: 'image/png',
+				style: 'normal',
+				variant: 'GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2'
+			},
+			variants: {
+				plan: 'GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2',
+				parcels: {
+					options: {
+						variant: 'CADASTRALPARCELS.PARCELLAIRE_EXPRESS',
+						style: 'PCI vecteur',
+						maxZoom: 20
+					}
+				},
+				orthos: {
+					options: {
+						maxZoom: 19,
+						format: 'image/jpeg',
+						variant: 'ORTHOIMAGERY.ORTHOPHOTOS'
+					}
+				}
+			}
+		},
+		OneMapSG: {
+			url: 'https://maps-{s}.onemap.sg/v3/{variant}/{z}/{x}/{y}.png',
+			options: {
+				variant: 'Default',
+				minZoom: 11,
+				maxZoom: 18,
+				bounds: [[1.56073, 104.11475], [1.16, 103.502]],
+				attribution: '<img src="https://docs.onemap.sg/maps/images/oneMap64-01.png" style="height:20px;width:20px;"/> New OneMap | Map data &copy; contributors, <a href="http://SLA.gov.sg">Singapore Land Authority</a>'
+			},
+			variants: {
+				Default: 'Default',
+				Night: 'Night',
+				Original: 'Original',
+				Grey: 'Grey',
+				LandLot: 'LandLot'
+			}
+		},
+		USGS: {
+			url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+			options: {
+				maxZoom: 20,
+				attribution: 'Tiles courtesy of the <a href="https://usgs.gov/">U.S. Geological Survey</a>'
+			},
+			variants: {
+				USTopo: {},
+				USImagery: {
+					url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'
+				},
+				USImageryTopo: {
+					url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}'
+				}
+			}
+		},
+		WaymarkedTrails: {
+			url: 'https://tile.waymarkedtrails.org/{variant}/{z}/{x}/{y}.png',
+			options: {
+				maxZoom: 18,
+				attribution: 'Map data: {attribution.OpenStreetMap} | Map style: &copy; <a href="https://waymarkedtrails.org">waymarkedtrails.org</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+			},
+			variants: {
+				hiking: 'hiking',
+				cycling: 'cycling',
+				mtb: 'mtb',
+				slopes: 'slopes',
+				riding: 'riding',
+				skating: 'skating'
+			}
+		},
+		OpenAIP: {
+			url: 'https://{s}.tile.maps.openaip.net/geowebcache/service/tms/1.0.0/openaip_basemap@EPSG%3A900913@png/{z}/{x}/{y}.{ext}',
+			options: {
+				attribution: '<a href="https://www.openaip.net/">openAIP Data</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-NC-SA</a>)',
+				ext: 'png',
+				minZoom: 4,
+				maxZoom: 14,
+				tms: true,
+				detectRetina: true,
+				subdomains: '12'
+			}
+		},
+		OpenSnowMap: {
+			url: 'https://tiles.opensnowmap.org/{variant}/{z}/{x}/{y}.png',
+			options: {
+				minZoom: 9,
+				maxZoom: 18,
+				attribution: 'Map data: {attribution.OpenStreetMap} & ODbL, &copy; <a href="https://www.opensnowmap.org/iframes/data.html">www.opensnowmap.org</a> <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+			},
+			variants: {
+				pistes: 'pistes',
+			}
+		},
+		AzureMaps: {
+			url: 
+				'https://atlas.microsoft.com/map/tile?api-version={apiVersion}'+
+				'&tilesetId={variant}&x={x}&y={y}&zoom={z}&language={language}'+
+				'&subscription-key={subscriptionKey}',
+			options: {
+				attribution: 'See https://docs.microsoft.com/en-us/rest/api/maps/render-v2/get-map-tile for details.',
+				apiVersion: '2.0',
+				variant: 'microsoft.imagery',
+				subscriptionKey: '<insert your subscription key here>',
+				language: 'en-US',
+			},
+			variants: {
+				MicrosoftImagery: 'microsoft.imagery',
+				MicrosoftBaseDarkGrey: 'microsoft.base.darkgrey',
+				MicrosoftBaseRoad: 'microsoft.base.road',
+				MicrosoftBaseHybridRoad: 'microsoft.base.hybrid.road',
+				MicrosoftTerraMain: 'microsoft.terra.main',
+				MicrosoftWeatherInfraredMain: {
+					url: 
+					'https://atlas.microsoft.com/map/tile?api-version={apiVersion}'+
+					'&tilesetId={variant}&x={x}&y={y}&zoom={z}'+
+					'&timeStamp={timeStamp}&language={language}' +
+					'&subscription-key={subscriptionKey}',
+					options: {
+						timeStamp: '2021-05-08T09:03:00Z',
+						attribution: 'See https://docs.microsoft.com/en-us/rest/api/maps/render-v2/get-map-tile#uri-parameters for details.',
+						variant: 'microsoft.weather.infrared.main',
+					},
+				},
+				MicrosoftWeatherRadarMain: {
+					url: 
+					'https://atlas.microsoft.com/map/tile?api-version={apiVersion}'+
+					'&tilesetId={variant}&x={x}&y={y}&zoom={z}'+
+					'&timeStamp={timeStamp}&language={language}' +
+					'&subscription-key={subscriptionKey}',
+					options: {
+						timeStamp: '2021-05-08T09:03:00Z',
+						attribution: 'See https://docs.microsoft.com/en-us/rest/api/maps/render-v2/get-map-tile#uri-parameters for details.',
+						variant: 'microsoft.weather.radar.main',
+					},
+				}
+			},
+		},
+		SwissFederalGeoportal: {
+			url: 'https://wmts.geo.admin.ch/1.0.0/{variant}/default/current/3857/{z}/{x}/{y}.jpeg',
+			options: {
+				attribution: '&copy; <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
+				minZoom: 2,
+				maxZoom: 18,
+				bounds: [[45.398181, 5.140242], [48.230651, 11.47757]]
+			},
+			variants: {
+				NationalMapColor: 'ch.swisstopo.pixelkarte-farbe',
+				NationalMapGrey: 'ch.swisstopo.pixelkarte-grau',
+				SWISSIMAGE: {
+					options: {
+						variant: 'ch.swisstopo.swissimage',
+						maxZoom: 19
+					}
+				}
+			}
+		}
+	};
+
+	L.tileLayer.provider = function (provider, options) {
+		return new L.TileLayer.Provider(provider, options);
+	};
+
+	return L;
+}));
+</script>
+<script>LeafletWidget.methods.addProviderTiles = function(provider, layerId, group, options) {
+  this.layerManager.addLayer(L.tileLayer.provider(provider, options), "tile", layerId, group);
+};
+</script>
 <style type="text/css">.leaflet-control-minimap{border:rgba(255,255,255,1) solid;box-shadow:0 1px 5px rgba(0,0,0,.65);border-radius:3px;background:#f8f8f9;transition:all .6s}.leaflet-control-minimap a{background-color:rgba(255,255,255,1);background-repeat:no-repeat;z-index:99999;transition:all .6s}.leaflet-control-minimap a.minimized-bottomright{-webkit-transform:rotate(180deg);transform:rotate(180deg);border-radius:0}.leaflet-control-minimap a.minimized-topleft{-webkit-transform:rotate(0deg);transform:rotate(0deg);border-radius:0}.leaflet-control-minimap a.minimized-bottomleft{-webkit-transform:rotate(270deg);transform:rotate(270deg);border-radius:0}.leaflet-control-minimap a.minimized-topright{-webkit-transform:rotate(90deg);transform:rotate(90deg);border-radius:0}.leaflet-control-minimap-toggle-display{background-image:url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMTgiIHdpZHRoPSIxOCI+PGRlZnM+PG1hcmtlciBvcmllbnQ9ImF1dG8iIG92ZXJmbG93PSJ2aXNpYmxlIj48cGF0aCBkPSJNLTIuNi0yLjgyOEwtNS40MjggMC0yLjYgMi44MjguMjI4IDAtMi42LTIuODI4eiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iLjRwdCIvPjwvbWFya2VyPjxtYXJrZXIgb3JpZW50PSJhdXRvIiBvdmVyZmxvdz0idmlzaWJsZSI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9Ii44IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik00LjU2NiA0Ljc1TC0uNjUyIDAiLz48cGF0aCBkPSJNMS41NDQgNC43NUwtMy42NzQgMCIvPjxwYXRoIGQ9Ik0tMS41NjYgNC43NUwtNi43ODQgMCIvPjxwYXRoIGQ9Ik00LjU2Ni01LjAxM0wtLjY1Mi0uMjYzIi8+PHBhdGggZD0iTTEuNTQ0LTUuMDEzbC01LjIxOCA0Ljc1Ii8+PHBhdGggZD0iTS0xLjU2Ni01LjAxM2wtNS4yMTggNC43NSIvPjwvZz48L21hcmtlcj48bWFya2VyIG9yaWVudD0iYXV0byIgb3ZlcmZsb3c9InZpc2libGUiPjxwYXRoIGQ9Ik0tNS42LTUuNjU3TC0xMS4yNTcgMC01LjYgNS42NTcuMDU3IDAtNS42LTUuNjU3eiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iLjhwdCIvPjwvbWFya2VyPjxtYXJrZXIgb3JpZW50PSJhdXRvIiBvdmVyZmxvdz0idmlzaWJsZSI+PHBhdGggZD0iTTQuNjE2IDBsLTYuOTIgNHYtOGw2LjkyIDR6IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIuOHB0Ii8+PC9tYXJrZXI+PG1hcmtlciBvcmllbnQ9ImF1dG8iIG92ZXJmbG93PSJ2aXNpYmxlIj48cGF0aCBkPSJNLTEwLjY5LTQuNDM3TDEuMzI4LS4wMTdsLTEyLjAxOCA0LjQyYzEuOTItMi42MSAxLjkxLTYuMTggMC04Ljg0eiIgZm9udC1zaXplPSIxMiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2Utd2lkdGg9Ii42ODc1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9tYXJrZXI+PG1hcmtlciBvcmllbnQ9ImF1dG8iIG92ZXJmbG93PSJ2aXNpYmxlIj48cGF0aCBkPSJNLTQuNjE2IDBsNi45Mi00djhsLTYuOTItNHoiIGZpbGwtcnVsZT0iZXZlbm9kZCIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9Ii44cHQiLz48L21hcmtlcj48bWFya2VyIG9yaWVudD0iYXV0byIgb3ZlcmZsb3c9InZpc2libGUiPjxwYXRoIGQ9Ik0xMCAwbDQtNEwwIDBsMTQgNC00LTR6IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIuOHB0Ii8+PC9tYXJrZXI+PG1hcmtlciBvcmllbnQ9ImF1dG8iIG92ZXJmbG93PSJ2aXNpYmxlIj48cGF0aCBkPSJNMTAuNjkgNC40MzdMLTEuMzI4LjAxN2wxMi4wMTgtNC40MmMtMS45MiAyLjYxLTEuOTEgNi4xOCAwIDguODR6IiBmb250LXNpemU9IjEyIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIHN0cm9rZS13aWR0aD0iLjY4NzUiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L21hcmtlcj48L2RlZnM+PHBhdGggZD0iTTEzLjE4IDEzLjE0NnYtNS44MWwtNS44MSA1LjgxaDUuODF6IiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS42NDMiLz48cGF0aCBkPSJNMTIuNzYyIDEyLjcyN2wtNi41MS02LjUxIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMi40ODIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==);background-size:cover;position:absolute;border-radius:3px 0 0}.leaflet-oldie .leaflet-control-minimap-toggle-display{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAAH1JREFUOI3t0DEKAjEQheFP8ERWqfUCeg9rL+adbKxkYRFEY7ERhkUhCZb7wyuGYX5ewkIvK6z/ITpjxOHHPtWKrsh4fJEl3GpF29LoI9sHSS6pZjeTnTD0iOayjFevCI7hOKaJZHpObNIsih/b3WiDSzgaS+5lfrY0Wph4A4kFM89VzdVFAAAAAElFTkSuQmCC)}.leaflet-control-minimap-toggle-display-bottomright{bottom:0;right:0}.leaflet-control-minimap-toggle-display-topleft{top:0;left:0;-webkit-transform:rotate(180deg);transform:rotate(180deg)}.leaflet-control-minimap-toggle-display-bottomleft{bottom:0;left:0;-webkit-transform:rotate(90deg);transform:rotate(90deg)}.leaflet-control-minimap-toggle-display-topright{top:0;right:0;-webkit-transform:rotate(270deg);transform:rotate(270deg)}.leaflet-oldie .leaflet-control-minimap{border:1px solid #999}.leaflet-oldie .leaflet-control-minimap a{background-color:#fff}.leaflet-oldie .leaflet-control-minimap a.minimized{filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=2)}</style>
 <script>(function(factory,window){if(typeof define==="function"&&define.amd){define(["leaflet"],factory)}else if(typeof exports==="object"){module.exports=factory(require("leaflet"))}if(typeof window!=="undefined"&&window.L){window.L.Control.MiniMap=factory(L);window.L.control.minimap=function(layer,options){return new window.L.Control.MiniMap(layer,options)}}})(function(L){var MiniMap=L.Control.extend({includes:L.Mixin.Events,options:{position:"bottomright",toggleDisplay:false,zoomLevelOffset:-5,zoomLevelFixed:false,centerFixed:false,zoomAnimation:false,autoToggleDisplay:false,minimized:false,width:150,height:150,collapsedWidth:19,collapsedHeight:19,aimingRectOptions:{color:"#ff7800",weight:1,clickable:false},shadowRectOptions:{color:"#000000",weight:1,clickable:false,opacity:0,fillOpacity:0},strings:{hideText:"Hide MiniMap",showText:"Show MiniMap"},mapOptions:{}},initialize:function(layer,options){L.Util.setOptions(this,options);this.options.aimingRectOptions.clickable=false;this.options.shadowRectOptions.clickable=false;this._layer=layer},onAdd:function(map){this._mainMap=map;this._container=L.DomUtil.create("div","leaflet-control-minimap");this._container.style.width=this.options.width+"px";this._container.style.height=this.options.height+"px";L.DomEvent.disableClickPropagation(this._container);L.DomEvent.on(this._container,"mousewheel",L.DomEvent.stopPropagation);var mapOptions={attributionControl:false,dragging:!this.options.centerFixed,zoomControl:false,zoomAnimation:this.options.zoomAnimation,autoToggleDisplay:this.options.autoToggleDisplay,touchZoom:this.options.centerFixed?"center":!this._isZoomLevelFixed(),scrollWheelZoom:this.options.centerFixed?"center":!this._isZoomLevelFixed(),doubleClickZoom:this.options.centerFixed?"center":!this._isZoomLevelFixed(),boxZoom:!this._isZoomLevelFixed(),crs:map.options.crs};mapOptions=L.Util.extend(this.options.mapOptions,mapOptions);this._miniMap=new L.Map(this._container,mapOptions);this._miniMap.addLayer(this._layer);this._mainMapMoving=false;this._miniMapMoving=false;this._userToggledDisplay=false;this._minimized=false;if(this.options.toggleDisplay){this._addToggleButton()}this._miniMap.whenReady(L.Util.bind(function(){this._aimingRect=L.rectangle(this._mainMap.getBounds(),this.options.aimingRectOptions).addTo(this._miniMap);this._shadowRect=L.rectangle(this._mainMap.getBounds(),this.options.shadowRectOptions).addTo(this._miniMap);this._mainMap.on("moveend",this._onMainMapMoved,this);this._mainMap.on("move",this._onMainMapMoving,this);this._miniMap.on("movestart",this._onMiniMapMoveStarted,this);this._miniMap.on("move",this._onMiniMapMoving,this);this._miniMap.on("moveend",this._onMiniMapMoved,this)},this));return this._container},addTo:function(map){L.Control.prototype.addTo.call(this,map);var center=this.options.centerFixed||this._mainMap.getCenter();this._miniMap.setView(center,this._decideZoom(true));this._setDisplay(this.options.minimized);return this},onRemove:function(map){this._mainMap.off("moveend",this._onMainMapMoved,this);this._mainMap.off("move",this._onMainMapMoving,this);this._miniMap.off("moveend",this._onMiniMapMoved,this);this._miniMap.removeLayer(this._layer)},changeLayer:function(layer){this._miniMap.removeLayer(this._layer);this._layer=layer;this._miniMap.addLayer(this._layer)},_addToggleButton:function(){this._toggleDisplayButton=this.options.toggleDisplay?this._createButton("",this._toggleButtonInitialTitleText(),"leaflet-control-minimap-toggle-display leaflet-control-minimap-toggle-display-"+this.options.position,this._container,this._toggleDisplayButtonClicked,this):undefined;this._toggleDisplayButton.style.width=this.options.collapsedWidth+"px";this._toggleDisplayButton.style.height=this.options.collapsedHeight+"px"},_toggleButtonInitialTitleText:function(){if(this.options.minimized){return this.options.strings.showText}else{return this.options.strings.hideText}},_createButton:function(html,title,className,container,fn,context){var link=L.DomUtil.create("a",className,container);link.innerHTML=html;link.href="#";link.title=title;var stop=L.DomEvent.stopPropagation;L.DomEvent.on(link,"click",stop).on(link,"mousedown",stop).on(link,"dblclick",stop).on(link,"click",L.DomEvent.preventDefault).on(link,"click",fn,context);return link},_toggleDisplayButtonClicked:function(){this._userToggledDisplay=true;if(!this._minimized){this._minimize()}else{this._restore()}},_setDisplay:function(minimize){if(minimize!==this._minimized){if(!this._minimized){this._minimize()}else{this._restore()}}},_minimize:function(){if(this.options.toggleDisplay){this._container.style.width=this.options.collapsedWidth+"px";this._container.style.height=this.options.collapsedHeight+"px";this._toggleDisplayButton.className+=" minimized-"+this.options.position;this._toggleDisplayButton.title=this.options.strings.showText}else{this._container.style.display="none"}this._minimized=true;this._onToggle()},_restore:function(){if(this.options.toggleDisplay){this._container.style.width=this.options.width+"px";this._container.style.height=this.options.height+"px";this._toggleDisplayButton.className=this._toggleDisplayButton.className.replace("minimized-"+this.options.position,"");this._toggleDisplayButton.title=this.options.strings.hideText}else{this._container.style.display="block"}this._minimized=false;this._onToggle()},_onMainMapMoved:function(e){if(!this._miniMapMoving){var center=this.options.centerFixed||this._mainMap.getCenter();this._mainMapMoving=true;this._miniMap.setView(center,this._decideZoom(true));this._setDisplay(this._decideMinimized())}else{this._miniMapMoving=false}this._aimingRect.setBounds(this._mainMap.getBounds())},_onMainMapMoving:function(e){this._aimingRect.setBounds(this._mainMap.getBounds())},_onMiniMapMoveStarted:function(e){if(!this.options.centerFixed){var lastAimingRect=this._aimingRect.getBounds();var sw=this._miniMap.latLngToContainerPoint(lastAimingRect.getSouthWest());var ne=this._miniMap.latLngToContainerPoint(lastAimingRect.getNorthEast());this._lastAimingRectPosition={sw:sw,ne:ne}}},_onMiniMapMoving:function(e){if(!this.options.centerFixed){if(!this._mainMapMoving&&this._lastAimingRectPosition){this._shadowRect.setBounds(new L.LatLngBounds(this._miniMap.containerPointToLatLng(this._lastAimingRectPosition.sw),this._miniMap.containerPointToLatLng(this._lastAimingRectPosition.ne)));this._shadowRect.setStyle({opacity:1,fillOpacity:.3})}}},_onMiniMapMoved:function(e){if(!this._mainMapMoving){this._miniMapMoving=true;this._mainMap.setView(this._miniMap.getCenter(),this._decideZoom(false));this._shadowRect.setStyle({opacity:0,fillOpacity:0})}else{this._mainMapMoving=false}},_isZoomLevelFixed:function(){var zoomLevelFixed=this.options.zoomLevelFixed;return this._isDefined(zoomLevelFixed)&&this._isInteger(zoomLevelFixed)},_decideZoom:function(fromMaintoMini){if(!this._isZoomLevelFixed()){if(fromMaintoMini){return this._mainMap.getZoom()+this.options.zoomLevelOffset}else{var currentDiff=this._miniMap.getZoom()-this._mainMap.getZoom();var proposedZoom=this._miniMap.getZoom()-this.options.zoomLevelOffset;var toRet;if(currentDiff>this.options.zoomLevelOffset&&this._mainMap.getZoom()<this._miniMap.getMinZoom()-this.options.zoomLevelOffset){if(this._miniMap.getZoom()>this._lastMiniMapZoom){toRet=this._mainMap.getZoom()+1;this._miniMap.setZoom(this._miniMap.getZoom()-1)}else{toRet=this._mainMap.getZoom()}}else{toRet=proposedZoom}this._lastMiniMapZoom=this._miniMap.getZoom();return toRet}}else{if(fromMaintoMini){return this.options.zoomLevelFixed}else{return this._mainMap.getZoom()}}},_decideMinimized:function(){if(this._userToggledDisplay){return this._minimized}if(this.options.autoToggleDisplay){if(this._mainMap.getBounds().contains(this._miniMap.getBounds())){return true}return false}return this._minimized},_isInteger:function(value){return typeof value==="number"},_isDefined:function(value){return typeof value!=="undefined"},_onToggle:function(){L.Util.requestAnimFrame(function(){L.DomEvent.on(this._container,"transitionend",this._fireToggleEvents,this);if(!L.Browser.any3d){L.Util.requestAnimFrame(this._fireToggleEvents,this)}},this)},_fireToggleEvents:function(){L.DomEvent.off(this._container,"transitionend",this._fireToggleEvents,this);var data={minimized:this._minimized};this.fire(this._minimized?"minimize":"restore",data);this.fire("toggle",data)}});L.Map.mergeOptions({miniMapControl:false});L.Map.addInitHook(function(){if(this.options.miniMapControl){this.miniMapControl=(new MiniMap).addTo(this)}});return MiniMap},window);</script>
 <script>LeafletWidget.methods.addMiniMap =
@@ -5155,10 +6338,10 @@ villa_Jardin</code></pre>
 <p>y veamoslo en un mapa interactivo usando Leaflet usando la
 información geográfica de Villa Jardín.</p>
 <pre class="r"><code>leaflet(villa_Jardin) %&gt;%
-  addTiles() %&gt;% 
+  addProviderTiles(&quot;CartoDB.Positron&quot;) %&gt;% 
   addPolygons(popup = &quot;Villa Jardín&quot;)</code></pre>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-1f853c973e6b14412789" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-1f853c973e6b14412789">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false,"attribution":"&copy; <a href=\"https://openstreetmap.org/copyright/\">OpenStreetMap<\/a>,  <a href=\"https://opendatacommons.org/licenses/odbl/\">ODbL<\/a>"}]},{"method":"addPolygons","args":[[[[{"lng":[-58.43090399931857,-58.43536991253118,-58.43339193216349,-58.43492954975303,-58.4344236456581,-58.42756245993733,-58.42599716251531,-58.42561921265755,-58.42506588341485,-58.42490433449065,-58.42551501677013,-58.4250092272301,-58.42524372815414,-58.4251181948143,-58.42539335540852,-58.4256560490218,-58.42648335637087,-58.42720391890877,-58.4283988806725,-58.4298473599999,-58.430466482262,-58.43087011510596,-58.43146792931388,-58.4313038351004,-58.43189736422053,-58.43293054417809,-58.43178268172297,-58.43243956539489,-58.431350331476,-58.43068269841481,-58.42858661201412,-58.42994360860575,-58.42986612280828,-58.43090399931857],"lat":[-34.67061310295561,-34.67581647399339,-34.67756296088261,-34.6792074175368,-34.68051641397802,-34.67860136066445,-34.67704299250892,-34.67717987870772,-34.67790277774927,-34.67784798087504,-34.67693070003454,-34.67643728548922,-34.67620923368519,-34.67608270207703,-34.67589016498685,-34.67549532156137,-34.67585607549272,-34.67493631682948,-34.6755620134585,-34.67626297,-34.6765465744104,-34.67604036634927,-34.6763403896391,-34.6765484595894,-34.67675100160065,-34.67528075304045,-34.67473007204885,-34.67382200318828,-34.6733075728034,-34.67418717049362,-34.67315200500048,-34.67162585708137,-34.67160765755655,-34.67061310295561]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":"#03F","weight":5,"opacity":0.5,"fill":true,"fillColor":"#03F","fillOpacity":0.2,"smoothFactor":1,"noClip":false},"Villa Jardín",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[-34.68051641397802,-34.67061310295561],"lng":[-58.43536991253118,-58.42490433449065]}},"evals":[],"jsHooks":[]}</script>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-57c70a2f457e9c85b534" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-57c70a2f457e9c85b534">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addPolygons","args":[[[[{"lng":[-58.43090399931857,-58.43536991253118,-58.43339193216349,-58.43492954975303,-58.4344236456581,-58.42756245993733,-58.42599716251531,-58.42561921265755,-58.42506588341485,-58.42490433449065,-58.42551501677013,-58.4250092272301,-58.42524372815414,-58.4251181948143,-58.42539335540852,-58.4256560490218,-58.42648335637087,-58.42720391890877,-58.4283988806725,-58.4298473599999,-58.430466482262,-58.43087011510596,-58.43146792931388,-58.4313038351004,-58.43189736422053,-58.43293054417809,-58.43178268172297,-58.43243956539489,-58.431350331476,-58.43068269841481,-58.42858661201412,-58.42994360860575,-58.42986612280828,-58.43090399931857],"lat":[-34.67061310295561,-34.67581647399339,-34.67756296088261,-34.6792074175368,-34.68051641397802,-34.67860136066445,-34.67704299250892,-34.67717987870772,-34.67790277774927,-34.67784798087504,-34.67693070003454,-34.67643728548922,-34.67620923368519,-34.67608270207703,-34.67589016498685,-34.67549532156137,-34.67585607549272,-34.67493631682948,-34.6755620134585,-34.67626297,-34.6765465744104,-34.67604036634927,-34.6763403896391,-34.6765484595894,-34.67675100160065,-34.67528075304045,-34.67473007204885,-34.67382200318828,-34.6733075728034,-34.67418717049362,-34.67315200500048,-34.67162585708137,-34.67160765755655,-34.67061310295561]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":"#03F","weight":5,"opacity":0.5,"fill":true,"fillColor":"#03F","fillOpacity":0.2,"smoothFactor":1,"noClip":false},"Villa Jardín",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[-34.68051641397802,-34.67061310295561],"lng":[-58.43536991253118,-58.42490433449065]}},"evals":[],"jsHooks":[]}</script>
 <p>Bien! sabemos que la geolocalizacion fue exitosa ya que el lugar es
 correcto, pertenece a Villla Jardín.</p>
 <p>Ahora abriremos el dataset de hospitales públicos.</p>
@@ -5408,20 +6591,17 @@ partido.</p>
 <p>Vamos a ver un mapa interactivo para ver la ubicación de los
 establecimientos en el partido de Lanús.</p>
 <pre class="r"><code>leaflet(hospitales_Lanus) %&gt;%
-  addTiles(
-    urlTemplate = &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
-    options = tileOptions(attribution = &quot;© OpenStreetMap contributors&quot;)
-  ) %&gt;%
+  addProviderTiles(providers$CartoDB.Positron) %&gt;% 
   addMarkers(~long, ~lat,
              popup = ~nor) </code></pre>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-1b34784989269dede800" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-1b34784989269dede800">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false}]},{"method":"addMarkers","args":[[-34.719639991,-34.7195208769999,-34.6774321969999,-34.7257866079999,-34.7233339578181,-34.731425,-34.6648745639999,-34.6884057729999,-34.6849180489999,-34.6894914509999,-34.7045806529999,-34.711247801,-34.7326092459999,-34.7205353229999,-34.677808491,-34.6993413239999,-34.7263038939999,-34.6708084229999,-34.70249322,-34.7381664279999,-34.7038908069999,-34.7112244019999,-34.6962367889999,-34.706433999,-34.7317540569999,-34.7225248899999,-34.6927115619999,-34.7234627969999,-34.6802223019999,-34.6956386849999,-34.7322905259999,-34.7380672339999,-34.7178927279999,-34.7176718229999,-34.7103711619999,-34.7255515509999,-34.7394241689999,-34.7346343369999,-34.7019092709999,-34.7036544549999,-34.6926908789999,-34.7053646619999,-34.7379389029999,-34.713774096,-34.6708585779999,-34.6747724119999,-34.698287568,-34.6983324999999,-34.720110147,-34.7009494599999,-34.6991614069999,-34.7054751999999,-34.7138209209999,-34.717095405,-34.7349653059999,-34.667777585,-34.7233569601873,-34.7021499215013,-34.7196277707907,-34.6610221365588,-34.7276288289963],[-58.3446784049999,-58.3652048749999,-58.4312477949999,-58.3855784149999,-58.3956096262272,-58.359907,-58.4217189049999,-58.4234951299999,-58.4340730729999,-58.4226864109999,-58.3683487479999,-58.381466493,-58.3421012289999,-58.4161410729999,-58.4236162199999,-58.4328110999999,-58.3369401249999,-58.4084800059999,-58.3834649279999,-58.3615458929999,-58.3825968659999,-58.4236506459999,-58.4007133909999,-58.4023145589999,-58.3598828769999,-58.3477880579999,-58.4317552629999,-58.3951742849999,-58.4348947599999,-58.4394391639999,-58.3740086699999,-58.3519494729999,-58.4111665139999,-58.4196912979999,-58.3577670089999,-58.348209279,-58.3685245909999,-58.3452299029999,-58.3736009269999,-58.3617989979999,-58.4056156539999,-58.4084302199999,-58.3581949499999,-58.3533165079999,-58.4227167469999,-58.425721559,-58.3920147879999,-58.3921396399999,-58.4060372239999,-58.4038713349999,-58.3919948019999,-58.3699158949999,-58.3633212849999,-58.3535442929999,-58.3642238349999,-58.4202326369999,-58.3955236540193,-58.3658941812512,-58.409792033095,-58.4160573600687,-58.3960655213755],null,null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},["CENTRO DE SALUD VILLA URQUIZA","CENTRO DE SALUD VILLA OBRERA","UNIDAD SANITARIA VILLA JARDIN","HOSPITAL LOCAL GENERAL AGUDOS DR. ARTURO MELO","INSTITUCION ASISTENCIAL Y HOSPITAL DE NIÑOS DR. LUIS MASPERO","CENTRO COMUNITARIO DE SALUD MENTAL PARA INFANCIAS Y JUVENTUDES","CENTRO DE SALUD MOLINEDO N° 17 DE LANUS","CENTRO DE SALUD ARTURO ILLIA","CENTRO DE SALUD VILLA GIARDINO","CENTRO DE SALUD 1° DE MAYO DE LANUS (OESTE)","CENTRO DE ZOONOSIS Y CLINICA VETERINARIA","CENTRO DE MEDICINA PREVENTIVA DR. FLOREAL FERRARA (EX RENE FAVALORO)","UNIDAD SANITARIA DR. NICOLAS NATIELLO","CENTRO DE SALUD VILLA ESPERANZA","CENTRO DE SALUD EL TRIANGULO","UNIDAD SANITARIA MIRANDA NORGREEN","CENTRO DE SALUD SANTA MARIA","UNIDAD SANITARIA VALENTIN ALSINA","HOSPITAL ZONAL ESPECIALIZADO EN ONCOLOGIA DE LANUS","CENTRO DE SALUD COSME ARGERICH","HOSPITAL ZONAL GENERAL AGUDOS NARCISO LOPEZ","CENTRO DE SALUD EDEN ARGENTINO","HOSPITAL INTERZONAL GENERAL AGUDOS EVITA","UNIDAD SANITARIA LANUS OESTE","UNIDAD SANITARIA SAN MARTIN DE LANUS","UNIDAD SANITARIA MONTE CHINGOLO","CENTRO DE SALUD RAMON CARRILLO DE LANUS","SERVICIO DE PEDIATRIA ODONTOLOGIA MASPERO","UPA 3","CENTRO DE SALUD EVA PERON DE LANUS","CENTRO DE SALUD LOS CEIBOS","CENTRO DE SALUD MANUEL GUEMES","CENTRO DE SALUD N° 19 GENERAL BALCARCE DE LANUS","CENTRO DE SALUD VILLA ESLOVENA","UNIDAD SANITARIA N° 48 VILLA PORA DE LANUS","CENTRO DE SALUD Nº 46 MONTE CHINGOLO","CENTRO DE SALUD VILLA INDEPENDENCIA N° 20 DE LANUS","CENTRO DE SALUD 26 DE ABRIL","CENTRO DE SALUD GRAL. BELGRANO","CENTRO DE SALUD 1° DE MAYO DE LANUS (ESTE)","CENTRO ODONTOLÓGICO ESCUELA  N° 9 (JARDINES MATERNALES)","CENTRO DE SALUD MENTAL 6 DE JULIO","CENTRO DE SALUD LA ESPERANZA","CENTRO DE SALUD VILLA INDUSTRIAL FIORITO","CENTRO DE SALUD Y FOMENTO CAMPOMAR","CENTRO DE SALUD VILLA CONSTITUCION","CENTRO DE SALUD PALACIO MUNICIPAL","PALACIO MUNICIPAL Y CENTRO DE DISCAPACITADOS","CENTRO DE SALUD GRAL. DON JOSÉ DE SAN MARTÍN","CENTRO DE SALUD BOMBEROS LANÚS OESTE","OPERATIVO SANITARIO LOS BARRIOS UNIDAD MOVIL 1","CENTRO DE SALUD LA MAQUINITA","CENTRO DE SALUD HEROES DE MALVINAS","CENTRO DE SALUD VA. HIGUERITA","CENTRO DE SALUD VILLA BARCELO","CENTRO DE SALUD BARRIO PAMPA","CENTRO PROVINCIAL DE ATENCION - LANUS ESTE (LANUS)","C.A.P.S. GERLI","C.A.P.S. DARDO ROCHA","CAPS NUEVO ALSINA","UGL X - LANUS"],null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[-34.7394241689999,-34.6610221365588],"lng":[-58.4394391639999,-58.3369401249999]}},"evals":[],"jsHooks":[]}</script>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-2f8b55ed1a0890873565" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-2f8b55ed1a0890873565">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addMarkers","args":[[-34.719639991,-34.7195208769999,-34.6774321969999,-34.7257866079999,-34.7233339578181,-34.731425,-34.6648745639999,-34.6884057729999,-34.6849180489999,-34.6894914509999,-34.7045806529999,-34.711247801,-34.7326092459999,-34.7205353229999,-34.677808491,-34.6993413239999,-34.7263038939999,-34.6708084229999,-34.70249322,-34.7381664279999,-34.7038908069999,-34.7112244019999,-34.6962367889999,-34.706433999,-34.7317540569999,-34.7225248899999,-34.6927115619999,-34.7234627969999,-34.6802223019999,-34.6956386849999,-34.7322905259999,-34.7380672339999,-34.7178927279999,-34.7176718229999,-34.7103711619999,-34.7255515509999,-34.7394241689999,-34.7346343369999,-34.7019092709999,-34.7036544549999,-34.6926908789999,-34.7053646619999,-34.7379389029999,-34.713774096,-34.6708585779999,-34.6747724119999,-34.698287568,-34.6983324999999,-34.720110147,-34.7009494599999,-34.6991614069999,-34.7054751999999,-34.7138209209999,-34.717095405,-34.7349653059999,-34.667777585,-34.7233569601873,-34.7021499215013,-34.7196277707907,-34.6610221365588,-34.7276288289963],[-58.3446784049999,-58.3652048749999,-58.4312477949999,-58.3855784149999,-58.3956096262272,-58.359907,-58.4217189049999,-58.4234951299999,-58.4340730729999,-58.4226864109999,-58.3683487479999,-58.381466493,-58.3421012289999,-58.4161410729999,-58.4236162199999,-58.4328110999999,-58.3369401249999,-58.4084800059999,-58.3834649279999,-58.3615458929999,-58.3825968659999,-58.4236506459999,-58.4007133909999,-58.4023145589999,-58.3598828769999,-58.3477880579999,-58.4317552629999,-58.3951742849999,-58.4348947599999,-58.4394391639999,-58.3740086699999,-58.3519494729999,-58.4111665139999,-58.4196912979999,-58.3577670089999,-58.348209279,-58.3685245909999,-58.3452299029999,-58.3736009269999,-58.3617989979999,-58.4056156539999,-58.4084302199999,-58.3581949499999,-58.3533165079999,-58.4227167469999,-58.425721559,-58.3920147879999,-58.3921396399999,-58.4060372239999,-58.4038713349999,-58.3919948019999,-58.3699158949999,-58.3633212849999,-58.3535442929999,-58.3642238349999,-58.4202326369999,-58.3955236540193,-58.3658941812512,-58.409792033095,-58.4160573600687,-58.3960655213755],null,null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},["CENTRO DE SALUD VILLA URQUIZA","CENTRO DE SALUD VILLA OBRERA","UNIDAD SANITARIA VILLA JARDIN","HOSPITAL LOCAL GENERAL AGUDOS DR. ARTURO MELO","INSTITUCION ASISTENCIAL Y HOSPITAL DE NIÑOS DR. LUIS MASPERO","CENTRO COMUNITARIO DE SALUD MENTAL PARA INFANCIAS Y JUVENTUDES","CENTRO DE SALUD MOLINEDO N° 17 DE LANUS","CENTRO DE SALUD ARTURO ILLIA","CENTRO DE SALUD VILLA GIARDINO","CENTRO DE SALUD 1° DE MAYO DE LANUS (OESTE)","CENTRO DE ZOONOSIS Y CLINICA VETERINARIA","CENTRO DE MEDICINA PREVENTIVA DR. FLOREAL FERRARA (EX RENE FAVALORO)","UNIDAD SANITARIA DR. NICOLAS NATIELLO","CENTRO DE SALUD VILLA ESPERANZA","CENTRO DE SALUD EL TRIANGULO","UNIDAD SANITARIA MIRANDA NORGREEN","CENTRO DE SALUD SANTA MARIA","UNIDAD SANITARIA VALENTIN ALSINA","HOSPITAL ZONAL ESPECIALIZADO EN ONCOLOGIA DE LANUS","CENTRO DE SALUD COSME ARGERICH","HOSPITAL ZONAL GENERAL AGUDOS NARCISO LOPEZ","CENTRO DE SALUD EDEN ARGENTINO","HOSPITAL INTERZONAL GENERAL AGUDOS EVITA","UNIDAD SANITARIA LANUS OESTE","UNIDAD SANITARIA SAN MARTIN DE LANUS","UNIDAD SANITARIA MONTE CHINGOLO","CENTRO DE SALUD RAMON CARRILLO DE LANUS","SERVICIO DE PEDIATRIA ODONTOLOGIA MASPERO","UPA 3","CENTRO DE SALUD EVA PERON DE LANUS","CENTRO DE SALUD LOS CEIBOS","CENTRO DE SALUD MANUEL GUEMES","CENTRO DE SALUD N° 19 GENERAL BALCARCE DE LANUS","CENTRO DE SALUD VILLA ESLOVENA","UNIDAD SANITARIA N° 48 VILLA PORA DE LANUS","CENTRO DE SALUD Nº 46 MONTE CHINGOLO","CENTRO DE SALUD VILLA INDEPENDENCIA N° 20 DE LANUS","CENTRO DE SALUD 26 DE ABRIL","CENTRO DE SALUD GRAL. BELGRANO","CENTRO DE SALUD 1° DE MAYO DE LANUS (ESTE)","CENTRO ODONTOLÓGICO ESCUELA  N° 9 (JARDINES MATERNALES)","CENTRO DE SALUD MENTAL 6 DE JULIO","CENTRO DE SALUD LA ESPERANZA","CENTRO DE SALUD VILLA INDUSTRIAL FIORITO","CENTRO DE SALUD Y FOMENTO CAMPOMAR","CENTRO DE SALUD VILLA CONSTITUCION","CENTRO DE SALUD PALACIO MUNICIPAL","PALACIO MUNICIPAL Y CENTRO DE DISCAPACITADOS","CENTRO DE SALUD GRAL. DON JOSÉ DE SAN MARTÍN","CENTRO DE SALUD BOMBEROS LANÚS OESTE","OPERATIVO SANITARIO LOS BARRIOS UNIDAD MOVIL 1","CENTRO DE SALUD LA MAQUINITA","CENTRO DE SALUD HEROES DE MALVINAS","CENTRO DE SALUD VA. HIGUERITA","CENTRO DE SALUD VILLA BARCELO","CENTRO DE SALUD BARRIO PAMPA","CENTRO PROVINCIAL DE ATENCION - LANUS ESTE (LANUS)","C.A.P.S. GERLI","C.A.P.S. DARDO ROCHA","CAPS NUEVO ALSINA","UGL X - LANUS"],null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[-34.7394241689999,-34.6610221365588],"lng":[-58.4394391639999,-58.3369401249999]}},"evals":[],"jsHooks":[]}</script>
 <p>Recordemos donde esta ubicado el barrio de Villa Jardín;</p>
 <pre class="r"><code>leaflet(villa_Jardin) %&gt;%
-  addTiles() %&gt;% 
+  addProviderTiles(&quot;CartoDB.Positron&quot;) %&gt;% 
   addPolygons(popup = &quot;Villa Jardín&quot;)</code></pre>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-9261ee0e37e7c39833f0" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-9261ee0e37e7c39833f0">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false,"attribution":"&copy; <a href=\"https://openstreetmap.org/copyright/\">OpenStreetMap<\/a>,  <a href=\"https://opendatacommons.org/licenses/odbl/\">ODbL<\/a>"}]},{"method":"addPolygons","args":[[[[{"lng":[-58.43090399931857,-58.43536991253118,-58.43339193216349,-58.43492954975303,-58.4344236456581,-58.42756245993733,-58.42599716251531,-58.42561921265755,-58.42506588341485,-58.42490433449065,-58.42551501677013,-58.4250092272301,-58.42524372815414,-58.4251181948143,-58.42539335540852,-58.4256560490218,-58.42648335637087,-58.42720391890877,-58.4283988806725,-58.4298473599999,-58.430466482262,-58.43087011510596,-58.43146792931388,-58.4313038351004,-58.43189736422053,-58.43293054417809,-58.43178268172297,-58.43243956539489,-58.431350331476,-58.43068269841481,-58.42858661201412,-58.42994360860575,-58.42986612280828,-58.43090399931857],"lat":[-34.67061310295561,-34.67581647399339,-34.67756296088261,-34.6792074175368,-34.68051641397802,-34.67860136066445,-34.67704299250892,-34.67717987870772,-34.67790277774927,-34.67784798087504,-34.67693070003454,-34.67643728548922,-34.67620923368519,-34.67608270207703,-34.67589016498685,-34.67549532156137,-34.67585607549272,-34.67493631682948,-34.6755620134585,-34.67626297,-34.6765465744104,-34.67604036634927,-34.6763403896391,-34.6765484595894,-34.67675100160065,-34.67528075304045,-34.67473007204885,-34.67382200318828,-34.6733075728034,-34.67418717049362,-34.67315200500048,-34.67162585708137,-34.67160765755655,-34.67061310295561]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":"#03F","weight":5,"opacity":0.5,"fill":true,"fillColor":"#03F","fillOpacity":0.2,"smoothFactor":1,"noClip":false},"Villa Jardín",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[-34.68051641397802,-34.67061310295561],"lng":[-58.43536991253118,-58.42490433449065]}},"evals":[],"jsHooks":[]}</script>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-61513714c74c13c23278" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-61513714c74c13c23278">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addPolygons","args":[[[[{"lng":[-58.43090399931857,-58.43536991253118,-58.43339193216349,-58.43492954975303,-58.4344236456581,-58.42756245993733,-58.42599716251531,-58.42561921265755,-58.42506588341485,-58.42490433449065,-58.42551501677013,-58.4250092272301,-58.42524372815414,-58.4251181948143,-58.42539335540852,-58.4256560490218,-58.42648335637087,-58.42720391890877,-58.4283988806725,-58.4298473599999,-58.430466482262,-58.43087011510596,-58.43146792931388,-58.4313038351004,-58.43189736422053,-58.43293054417809,-58.43178268172297,-58.43243956539489,-58.431350331476,-58.43068269841481,-58.42858661201412,-58.42994360860575,-58.42986612280828,-58.43090399931857],"lat":[-34.67061310295561,-34.67581647399339,-34.67756296088261,-34.6792074175368,-34.68051641397802,-34.67860136066445,-34.67704299250892,-34.67717987870772,-34.67790277774927,-34.67784798087504,-34.67693070003454,-34.67643728548922,-34.67620923368519,-34.67608270207703,-34.67589016498685,-34.67549532156137,-34.67585607549272,-34.67493631682948,-34.6755620134585,-34.67626297,-34.6765465744104,-34.67604036634927,-34.6763403896391,-34.6765484595894,-34.67675100160065,-34.67528075304045,-34.67473007204885,-34.67382200318828,-34.6733075728034,-34.67418717049362,-34.67315200500048,-34.67162585708137,-34.67160765755655,-34.67061310295561]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":"#03F","weight":5,"opacity":0.5,"fill":true,"fillColor":"#03F","fillOpacity":0.2,"smoothFactor":1,"noClip":false},"Villa Jardín",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[-34.68051641397802,-34.67061310295561],"lng":[-58.43536991253118,-58.42490433449065]}},"evals":[],"jsHooks":[]}</script>
 <p>Aqui contamos el número de establecimientos de salud por localidad
 dentro del partido de Lanús.</p>
 <pre class="r"><code>hospitales_Lanus_count &lt;- hospitales_Lanus %&gt;%
@@ -5518,20 +6698,14 @@ respectivamente.</p>
 <p>Al mapa de Isócronas le agregamos la ubicación del centro geográfico
 de Villa Jardín.</p>
 <pre class="r"><code>leaflet(isocrona) %&gt;%
-  addTiles(
-    urlTemplate = &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
-    options = tileOptions(attribution = &quot;© OpenStreetMap contributors&quot;)
-  ) %&gt;%
+  addProviderTiles(providers$CartoDB.Positron) %&gt;% 
   addPolygons(fillColor = ~colorBin(&quot;YlOrRd&quot;, domain = isocrona$isomax)(isomax),
-              color = NA,
-              fillOpacity = 0.5) %&gt;%
-  addMarkers(data = centroide) %&gt;%
-  addMiniMap(
-    tiles = &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
-    toggleDisplay = TRUE
-  )</code></pre>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-4ee3420f9612dbbdd061" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-4ee3420f9612dbbdd061">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false}]},{"method":"addPolygons","args":[[[[{"lng":[-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217],"lat":[-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245]}]],[[{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]},{"lng":[-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788],"lat":[-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532]}]],[[{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]},{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]}]],[[{"lng":[-58.42614398680696,-58.42733719496422,-58.42853040312155,-58.42909859748217,-58.4305712454889,-58.43064254289906,-58.43086000000002,-58.43246127501626,-58.43262140251788,-58.43425608543014,-58.43427407648525,-58.43438280503575,-58.43600974934621,-58.4361442075537,-58.43774834198959,-58.4377537650269,-58.43790561007155,-58.43966701258941,-58.44058965200352,-58.4410761346037,-58.4409880644778,-58.44017027045165,-58.43966701258941,-58.43790561007155,-58.43692705311719,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43158528338974,-58.43086000000002,-58.42909859748217,-58.42817154352534,-58.42733719496422,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42205298741064,-58.42175942032431,-58.42094395619564,-58.4207808633699,-58.42029158489269,-58.4196310589485,-58.41923474338198,-58.41853018237483,-58.41823661528854,-58.41794304820223,-58.41853018237483,-58.41911731654745,-58.41853018237483,-58.41794304820223,-58.41853018237483,-58.4196310589485,-58.42029158489269,-58.42056256989545,-58.42029158489269,-58.41889714123273,-58.41853018237483,-58.41774733681134,-58.41853018237483,-58.42029158489269,-58.42205298741064,-58.42381438992849,-58.42557579244636,-58.42594275130426,-58.42614398680696],"lat":[-34.66619959557272,-34.6652182002348,-34.66619959557272,-34.66643708996529,-34.66764830077752,-34.66909698064945,-34.66922867756342,-34.67054563518806,-34.67064985396222,-34.6719942643929,-34.67344286826357,-34.67355344767092,-34.67489144679939,-34.67502078293665,-34.67633999999999,-34.67778852786489,-34.67797664650799,-34.67847829413372,-34.67923703039368,-34.68068550758571,-34.68213395944057,-34.68358238595781,-34.68399621745168,-34.68453134131676,-34.68503078713697,-34.68567451286101,-34.68599637384609,-34.68614233364787,-34.68647916297748,-34.6870755456645,-34.68747490666922,-34.6879275134789,-34.68861356539847,-34.68826174461149,-34.6879275134789,-34.6879275134789,-34.68672055648739,-34.68647916297748,-34.68503078713697,-34.68358238595781,-34.68267712235381,-34.68213395944057,-34.68068550758571,-34.67947844501853,-34.67923703039368,-34.67778852786489,-34.67730568805839,-34.67633999999999,-34.67537430068131,-34.67489144679939,-34.67440859010247,-34.67344286826357,-34.67289964478094,-34.6719942643929,-34.67169246873107,-34.67054563518806,-34.66974083023866,-34.66909698064945,-34.66845312605614,-34.66833815149504,-34.66810101595883,-34.66798520533397,-34.66791657673915,-34.66764830077752,-34.66619959557272]},{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":null,"weight":5,"opacity":0.5,"fill":true,"fillColor":["#FFFFCC","#FEB24C","#FC4E2A","#B10026"],"fillOpacity":0.5,"smoothFactor":1,"noClip":false},null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMarkers","args":[-34.67634100057133,-58.43085895347669,null,null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},null,null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMiniMap","args":["https://tile.openstreetmap.org/{z}/{x}/{y}.png",null,"bottomright",150,150,19,19,-5,false,false,false,true,false,false,{"color":"#ff7800","weight":1,"clickable":false},{"color":"#000000","weight":1,"clickable":false,"opacity":0,"fillOpacity":0},{"hideText":"Hide MiniMap","showText":"Show MiniMap"},[]]}],"limits":{"lat":[-34.68861356539847,-34.6652182002348],"lng":[-58.4410761346037,-58.41774733681134]}},"evals":[],"jsHooks":[]}</script>
+  color = NA,
+  fillOpacity = 0.5) %&gt;%
+  addMarkers(data=centroide)%&gt;%
+  addMiniMap(tiles=providers$CartoDB.Positron)</code></pre>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-c479bb1fcbc402d08fdf" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-c479bb1fcbc402d08fdf">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addPolygons","args":[[[[{"lng":[-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217],"lat":[-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245]}]],[[{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]},{"lng":[-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788],"lat":[-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532]}]],[[{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]},{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]}]],[[{"lng":[-58.42614398680696,-58.42733719496422,-58.42853040312155,-58.42909859748217,-58.4305712454889,-58.43064254289906,-58.43086000000002,-58.43246127501626,-58.43262140251788,-58.43425608543014,-58.43427407648525,-58.43438280503575,-58.43600974934621,-58.4361442075537,-58.43774834198959,-58.4377537650269,-58.43790561007155,-58.43966701258941,-58.44058965200352,-58.4410761346037,-58.4409880644778,-58.44017027045165,-58.43966701258941,-58.43790561007155,-58.43692705311719,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43158528338974,-58.43086000000002,-58.42909859748217,-58.42817154352534,-58.42733719496422,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42205298741064,-58.42175942032431,-58.42094395619564,-58.4207808633699,-58.42029158489269,-58.4196310589485,-58.41923474338198,-58.41853018237483,-58.41823661528854,-58.41794304820223,-58.41853018237483,-58.41911731654745,-58.41853018237483,-58.41794304820223,-58.41853018237483,-58.4196310589485,-58.42029158489269,-58.42056256989545,-58.42029158489269,-58.41889714123273,-58.41853018237483,-58.41774733681134,-58.41853018237483,-58.42029158489269,-58.42205298741064,-58.42381438992849,-58.42557579244636,-58.42594275130426,-58.42614398680696],"lat":[-34.66619959557272,-34.6652182002348,-34.66619959557272,-34.66643708996529,-34.66764830077752,-34.66909698064945,-34.66922867756342,-34.67054563518806,-34.67064985396222,-34.6719942643929,-34.67344286826357,-34.67355344767092,-34.67489144679939,-34.67502078293665,-34.67633999999999,-34.67778852786489,-34.67797664650799,-34.67847829413372,-34.67923703039368,-34.68068550758571,-34.68213395944057,-34.68358238595781,-34.68399621745168,-34.68453134131676,-34.68503078713697,-34.68567451286101,-34.68599637384609,-34.68614233364787,-34.68647916297748,-34.6870755456645,-34.68747490666922,-34.6879275134789,-34.68861356539847,-34.68826174461149,-34.6879275134789,-34.6879275134789,-34.68672055648739,-34.68647916297748,-34.68503078713697,-34.68358238595781,-34.68267712235381,-34.68213395944057,-34.68068550758571,-34.67947844501853,-34.67923703039368,-34.67778852786489,-34.67730568805839,-34.67633999999999,-34.67537430068131,-34.67489144679939,-34.67440859010247,-34.67344286826357,-34.67289964478094,-34.6719942643929,-34.67169246873107,-34.67054563518806,-34.66974083023866,-34.66909698064945,-34.66845312605614,-34.66833815149504,-34.66810101595883,-34.66798520533397,-34.66791657673915,-34.66764830077752,-34.66619959557272]},{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":null,"weight":5,"opacity":0.5,"fill":true,"fillColor":["#FFFFCC","#FEB24C","#FC4E2A","#B10026"],"fillOpacity":0.5,"smoothFactor":1,"noClip":false},null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMarkers","args":[-34.67634100057133,-58.43085895347669,null,null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},null,null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMiniMap","args":[null,"CartoDB.Positron","bottomright",150,150,19,19,-5,false,false,false,false,false,false,{"color":"#ff7800","weight":1,"clickable":false},{"color":"#000000","weight":1,"clickable":false,"opacity":0,"fillOpacity":0},{"hideText":"Hide MiniMap","showText":"Show MiniMap"},[]]}],"limits":{"lat":[-34.68861356539847,-34.6652182002348],"lng":[-58.4410761346037,-58.41774733681134]}},"evals":[],"jsHooks":[]}</script>
 <p>Encontremos cuantos establecimientos de salud se encuentran dentro de
 las isócronas calculadas.</p>
 <p>¿Cuál es el CRS de las isócronas?</p>
@@ -5684,24 +6858,18 @@ a pié del punto central de Villa Jardín.</p>
 la mayoría esta a 15 minutos.</p>
 <p>Veamos un mapa interactivo.</p>
 <pre class="r"><code>leaflet(isocrona) %&gt;%
-  addTiles(
-    urlTemplate = &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
-    options = tileOptions(attribution = &quot;© OpenStreetMap contributors&quot;)
-  ) %&gt;%
+  addProviderTiles(providers$CartoDB.Positron) %&gt;% 
   addPolygons(fillColor = ~colorBin(&quot;YlOrRd&quot;, domain = isocrona$isomax)(isomax),
-              color = NA,
-              fillOpacity = 0.5) %&gt;%
-  addMarkers(data = centroide,
+  color = NA,
+  fillOpacity = 0.5) %&gt;%
+  addMarkers(data=centroide,
              popup = &quot;Villa Jardín&quot;) %&gt;%
-  addCircles(data = hospitales_geo,
+  addCircles(data=hospitales_geo,
              popup = ~nor,
-             color = &quot;black&quot;) %&gt;%
-  addMiniMap(
-    tiles = &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
-    toggleDisplay = TRUE
-  )</code></pre>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-ad533490e351dffaecdb" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-ad533490e351dffaecdb">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false}]},{"method":"addPolygons","args":[[[[{"lng":[-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217],"lat":[-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245]}]],[[{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]},{"lng":[-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788],"lat":[-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532]}]],[[{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]},{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]}]],[[{"lng":[-58.42614398680696,-58.42733719496422,-58.42853040312155,-58.42909859748217,-58.4305712454889,-58.43064254289906,-58.43086000000002,-58.43246127501626,-58.43262140251788,-58.43425608543014,-58.43427407648525,-58.43438280503575,-58.43600974934621,-58.4361442075537,-58.43774834198959,-58.4377537650269,-58.43790561007155,-58.43966701258941,-58.44058965200352,-58.4410761346037,-58.4409880644778,-58.44017027045165,-58.43966701258941,-58.43790561007155,-58.43692705311719,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43158528338974,-58.43086000000002,-58.42909859748217,-58.42817154352534,-58.42733719496422,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42205298741064,-58.42175942032431,-58.42094395619564,-58.4207808633699,-58.42029158489269,-58.4196310589485,-58.41923474338198,-58.41853018237483,-58.41823661528854,-58.41794304820223,-58.41853018237483,-58.41911731654745,-58.41853018237483,-58.41794304820223,-58.41853018237483,-58.4196310589485,-58.42029158489269,-58.42056256989545,-58.42029158489269,-58.41889714123273,-58.41853018237483,-58.41774733681134,-58.41853018237483,-58.42029158489269,-58.42205298741064,-58.42381438992849,-58.42557579244636,-58.42594275130426,-58.42614398680696],"lat":[-34.66619959557272,-34.6652182002348,-34.66619959557272,-34.66643708996529,-34.66764830077752,-34.66909698064945,-34.66922867756342,-34.67054563518806,-34.67064985396222,-34.6719942643929,-34.67344286826357,-34.67355344767092,-34.67489144679939,-34.67502078293665,-34.67633999999999,-34.67778852786489,-34.67797664650799,-34.67847829413372,-34.67923703039368,-34.68068550758571,-34.68213395944057,-34.68358238595781,-34.68399621745168,-34.68453134131676,-34.68503078713697,-34.68567451286101,-34.68599637384609,-34.68614233364787,-34.68647916297748,-34.6870755456645,-34.68747490666922,-34.6879275134789,-34.68861356539847,-34.68826174461149,-34.6879275134789,-34.6879275134789,-34.68672055648739,-34.68647916297748,-34.68503078713697,-34.68358238595781,-34.68267712235381,-34.68213395944057,-34.68068550758571,-34.67947844501853,-34.67923703039368,-34.67778852786489,-34.67730568805839,-34.67633999999999,-34.67537430068131,-34.67489144679939,-34.67440859010247,-34.67344286826357,-34.67289964478094,-34.6719942643929,-34.67169246873107,-34.67054563518806,-34.66974083023866,-34.66909698064945,-34.66845312605614,-34.66833815149504,-34.66810101595883,-34.66798520533397,-34.66791657673915,-34.66764830077752,-34.66619959557272]},{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":null,"weight":5,"opacity":0.5,"fill":true,"fillColor":["#FFFFCC","#FEB24C","#FC4E2A","#B10026"],"fillOpacity":0.5,"smoothFactor":1,"noClip":false},null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMarkers","args":[-34.67634100057133,-58.43085895347669,null,null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},"Villa Jardín",null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addCircles","args":[[-34.6774321969999,-34.6747724119999,-34.677808491,-34.6802223019999,-34.6708585779999,-34.6849180489999],[-58.4312477949999,-58.425721559,-58.4236162199999,-58.4348947599999,-58.4227167469999,-58.4340730729999],10,null,null,{"interactive":true,"className":"","stroke":true,"color":"black","weight":5,"opacity":0.5,"fill":true,"fillColor":"black","fillOpacity":0.2},["UNIDAD SANITARIA VILLA JARDIN","CENTRO DE SALUD VILLA CONSTITUCION","CENTRO DE SALUD EL TRIANGULO","UPA 3","CENTRO DE SALUD Y FOMENTO CAMPOMAR","CENTRO DE SALUD VILLA GIARDINO"],null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]},{"method":"addMiniMap","args":["https://tile.openstreetmap.org/{z}/{x}/{y}.png",null,"bottomright",150,150,19,19,-5,false,false,false,true,false,false,{"color":"#ff7800","weight":1,"clickable":false},{"color":"#000000","weight":1,"clickable":false,"opacity":0,"fillOpacity":0},{"hideText":"Hide MiniMap","showText":"Show MiniMap"},[]]}],"limits":{"lat":[-34.68861356539847,-34.6652182002348],"lng":[-58.4410761346037,-58.41774733681134]}},"evals":[],"jsHooks":[]}</script>
+             color = &quot;black&quot;)%&gt;%
+  addMiniMap(tiles=providers$CartoDB.Positron)</code></pre>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-62178003f6417ca96071" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-62178003f6417ca96071">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addPolygons","args":[[[[{"lng":[-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217],"lat":[-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245]}]],[[{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]},{"lng":[-58.43262140251788,-58.43264314822799,-58.43319488240741,-58.43350210377682,-58.4332504748457,-58.43262140251788,-58.43086000000002,-58.42909859748217,-58.42823837764782,-58.42754043371629,-58.42775164261549,-58.42909859748217,-58.43086000000002,-58.43191684151073,-58.43262140251788],"lat":[-34.67331690371532,-34.67344286826357,-34.67489144679939,-34.67633999999999,-34.67778852786489,-34.67825578951344,-34.6783920736643,-34.67905596896317,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67419398622245,-34.6736715928746,-34.67344286826357,-34.67331690371532]}]],[[{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]},{"lng":[-58.42733719496422,-58.42748710156149,-58.42909859748217,-58.4304273748202,-58.43086000000002,-58.43262140251788,-58.43298888937413,-58.43318679098041,-58.43438280503575,-58.43466516727144,-58.4361442075537,-58.43617566117008,-58.43623531458047,-58.4361442075537,-58.43552533639874,-58.43438280503575,-58.43262140251788,-58.43214102001301,-58.43086000000002,-58.42909859748217,-58.42733719496422,-58.42600095857136,-58.42557579244636,-58.42534604429186,-58.42557579244636,-58.42584267161573,-58.42561248833214,-58.42557579244636,-58.42401762868056,-58.42403456524323,-58.42557579244636,-58.42686748762613,-58.42733719496422],"lat":[-34.67182383874256,-34.6719942643929,-34.67278274812269,-34.6719942643929,-34.67054563518806,-34.67169203449193,-34.6719942643929,-34.67344286826357,-34.67465923362475,-34.67489144679939,-34.67631413320073,-34.67633999999999,-34.67778852786489,-34.67824595245327,-34.67923703039368,-34.6804785838238,-34.68054971392528,-34.68068550758571,-34.68121222028271,-34.68198911539526,-34.68191112234287,-34.68068550758571,-34.67967157621165,-34.67923703039368,-34.67869384491451,-34.67778852786489,-34.67633999999999,-34.67627964412247,-34.67489144679939,-34.67344286826357,-34.67287952532429,-34.6719942643929,-34.67182383874256]}]],[[{"lng":[-58.42614398680696,-58.42733719496422,-58.42853040312155,-58.42909859748217,-58.4305712454889,-58.43064254289906,-58.43086000000002,-58.43246127501626,-58.43262140251788,-58.43425608543014,-58.43427407648525,-58.43438280503575,-58.43600974934621,-58.4361442075537,-58.43774834198959,-58.4377537650269,-58.43790561007155,-58.43966701258941,-58.44058965200352,-58.4410761346037,-58.4409880644778,-58.44017027045165,-58.43966701258941,-58.43790561007155,-58.43692705311719,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43158528338974,-58.43086000000002,-58.42909859748217,-58.42817154352534,-58.42733719496422,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42205298741064,-58.42175942032431,-58.42094395619564,-58.4207808633699,-58.42029158489269,-58.4196310589485,-58.41923474338198,-58.41853018237483,-58.41823661528854,-58.41794304820223,-58.41853018237483,-58.41911731654745,-58.41853018237483,-58.41794304820223,-58.41853018237483,-58.4196310589485,-58.42029158489269,-58.42056256989545,-58.42029158489269,-58.41889714123273,-58.41853018237483,-58.41774733681134,-58.41853018237483,-58.42029158489269,-58.42205298741064,-58.42381438992849,-58.42557579244636,-58.42594275130426,-58.42614398680696],"lat":[-34.66619959557272,-34.6652182002348,-34.66619959557272,-34.66643708996529,-34.66764830077752,-34.66909698064945,-34.66922867756342,-34.67054563518806,-34.67064985396222,-34.6719942643929,-34.67344286826357,-34.67355344767092,-34.67489144679939,-34.67502078293665,-34.67633999999999,-34.67778852786489,-34.67797664650799,-34.67847829413372,-34.67923703039368,-34.68068550758571,-34.68213395944057,-34.68358238595781,-34.68399621745168,-34.68453134131676,-34.68503078713697,-34.68567451286101,-34.68599637384609,-34.68614233364787,-34.68647916297748,-34.6870755456645,-34.68747490666922,-34.6879275134789,-34.68861356539847,-34.68826174461149,-34.6879275134789,-34.6879275134789,-34.68672055648739,-34.68647916297748,-34.68503078713697,-34.68358238595781,-34.68267712235381,-34.68213395944057,-34.68068550758571,-34.67947844501853,-34.67923703039368,-34.67778852786489,-34.67730568805839,-34.67633999999999,-34.67537430068131,-34.67489144679939,-34.67440859010247,-34.67344286826357,-34.67289964478094,-34.6719942643929,-34.67169246873107,-34.67054563518806,-34.66974083023866,-34.66909698064945,-34.66845312605614,-34.66833815149504,-34.66810101595883,-34.66798520533397,-34.66791657673915,-34.66764830077752,-34.66619959557272]},{"lng":[-58.42912747293328,-58.4295552573942,-58.43086000000002,-58.43166063750814,-58.43262140251788,-58.43362248740213,-58.43373043373283,-58.43438280503575,-58.43533745830884,-58.4361442075537,-58.43696200157984,-58.43699453980369,-58.43790561007155,-58.43844032155019,-58.43790561007155,-58.43740235220929,-58.43720104906441,-58.4361442075537,-58.43438280503575,-58.43262140251788,-58.43225444366,-58.43086000000002,-58.42909859748217,-58.42784045282649,-58.42733719496422,-58.4267500607916,-58.42557579244636,-58.42381438992849,-58.42381438992849,-58.42343147633765,-58.42264012158326,-58.42205298741064,-58.42194289975327,-58.4213987521897,-58.4216465099065,-58.42133036073661,-58.42154161248607,-58.42191749490926,-58.42205298741064,-58.42259495741614,-58.42381438992849,-58.42557579244636,-58.42733719496422,-58.42819641570468,-58.42896310498079,-58.42909859748217,-58.42912747293328],"lat":[-34.66764830077752,-34.66909698064945,-34.66988715899284,-34.67054563518806,-34.67117094586607,-34.6719942643929,-34.67344286826357,-34.6741063424932,-34.67489144679939,-34.67566746059335,-34.67633999999999,-34.67778852786489,-34.67891723331348,-34.67923703039368,-34.67998321877803,-34.68068550758571,-34.68213395944057,-34.68260372216837,-34.68314156317831,-34.68332374022376,-34.68358238595781,-34.68441631700404,-34.68470160727577,-34.68503078713697,-34.68515673386812,-34.68503078713697,-34.68481621078337,-34.68358238595781,-34.68358238595781,-34.68213395944057,-34.68068550758571,-34.67965088360536,-34.67923703039368,-34.67778852786489,-34.67633999999999,-34.67489144679939,-34.67344286826357,-34.6719942643929,-34.67118947351788,-34.67054563518806,-34.67004418071467,-34.66957986831048,-34.66982131108544,-34.66909698064945,-34.66764830077752,-34.66762455171612,-34.66764830077752]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":null,"weight":5,"opacity":0.5,"fill":true,"fillColor":["#FFFFCC","#FEB24C","#FC4E2A","#B10026"],"fillOpacity":0.5,"smoothFactor":1,"noClip":false},null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMarkers","args":[-34.67634100057133,-58.43085895347669,null,null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},"Villa Jardín",null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addCircles","args":[[-34.6774321969999,-34.6747724119999,-34.677808491,-34.6802223019999,-34.6708585779999,-34.6849180489999],[-58.4312477949999,-58.425721559,-58.4236162199999,-58.4348947599999,-58.4227167469999,-58.4340730729999],10,null,null,{"interactive":true,"className":"","stroke":true,"color":"black","weight":5,"opacity":0.5,"fill":true,"fillColor":"black","fillOpacity":0.2},["UNIDAD SANITARIA VILLA JARDIN","CENTRO DE SALUD VILLA CONSTITUCION","CENTRO DE SALUD EL TRIANGULO","UPA 3","CENTRO DE SALUD Y FOMENTO CAMPOMAR","CENTRO DE SALUD VILLA GIARDINO"],null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]},{"method":"addMiniMap","args":[null,"CartoDB.Positron","bottomright",150,150,19,19,-5,false,false,false,false,false,false,{"color":"#ff7800","weight":1,"clickable":false},{"color":"#000000","weight":1,"clickable":false,"opacity":0,"fillOpacity":0},{"hideText":"Hide MiniMap","showText":"Show MiniMap"},[]]}],"limits":{"lat":[-34.68861356539847,-34.6652182002348],"lng":[-58.4410761346037,-58.41774733681134]}},"evals":[],"jsHooks":[]}</script>
 <p><strong>Calculemos las distancias y duraciones de los
 centros/Unidades de salud de Villa Jardín</strong></p>
 <p>Para visualizarlo en un mapa, debemos convertirla en un
@@ -5841,22 +7009,19 @@ Armenia 3114 situado a 1,31km y a 18 minutos caminando.</p>
 <p>Visualizemos en el mapa los recorridos de los 6 centros sanitarios
 situados a menos de 20 minutos a pié.</p>
 <pre class="r"><code>leaflet(ruteo2) %&gt;% 
-  addTiles(
-    urlTemplate = &quot;https://tile.openstreetmap.org/{z}/{x}/{y}.png&quot;,
-    options = tileOptions(attribution = &quot;© OpenStreetMap contributors&quot;)
-  ) %&gt;%
-  addPolylines(color = &quot;#D55E00&quot;,
-               label = paste(&quot;Distancia:&quot;, ruteo2$distance, &quot;|&quot;, 
-                             &quot;Duración:&quot;, ruteo2$duration)) %&gt;%
-  addCircleMarkers(data = coords, ~X, ~Y,
+    addProviderTiles(providers$CartoDB.DarkMatter) %&gt;% 
+    addPolylines(color = &quot;#D55E00&quot;,
+                 label = paste(&quot;Distancia:&quot;, ruteo2$distance, &quot;|&quot;, 
+                               &quot;Duración:&quot;, ruteo2$duration))%&gt;%
+  addCircleMarkers(data=coords, ~X, ~Y,
                    popup = &quot;Villa Jardín&quot;,
-                   color = &quot;white&quot;) %&gt;%
-  addCircleMarkers(data = hospitales_geo, ~long, ~lat,
+                   color=&quot;white&quot;) %&gt;%
+  addCircleMarkers(data=hospitales_geo, ~long, ~lat,
                    popup = ~nor,
-                   color = &quot;gray&quot;) %&gt;%
-  addMiniMap(toggleDisplay = TRUE)</code></pre>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-d5daec9f08eef3d32f65" style="width:672px;height:480px;"></div>
-<script type="application/json" data-for="htmlwidget-d5daec9f08eef3d32f65">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false}]},{"method":"addPolylines","args":[[[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4315872192383,-58.4315376281738,-58.4313087463379],"lat":[-34.6762504577637,-34.676570892334,-34.677059173584,-34.6771392822266,-34.6774597167969]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4293403625488,-58.4282493591309,-58.4271697998047,-58.4260292053223,-58.4257583618164],"lat":[-34.6762504577637,-34.676570892334,-34.6760292053223,-34.6754875183105,-34.6749687194824,-34.6744079589844,-34.6747894287109]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4300994873047,-58.4295501708984,-58.4289398193359,-58.4281997680664,-58.4275283813477,-58.4274368286133,-58.4270477294922,-58.4261779785156,-58.4249687194824,-58.4236869812012,-58.4235877990723],"lat":[-34.6762504577637,-34.676570892334,-34.6770477294922,-34.6767883300781,-34.6765899658203,-34.6776275634766,-34.6785202026367,-34.6786499023438,-34.678539276123,-34.6783180236816,-34.6779899597168,-34.6776580810547,-34.6777992248535]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4315872192383,-58.4315376281738,-58.4326477050781,-58.4330978393555,-58.433177947998,-58.4333572387695,-58.4338073730469,-58.4338493347168,-58.4338798522949,-58.4338874816895,-58.433910369873,-58.4342079162598,-58.4342575073242,-58.4344673156738,-58.4345474243164,-58.4348602294922,-58.4348678588867,-58.4348793029785,-58.4347801208496,-58.4346199035645,-58.4344596862793,-58.4348182678223],"lat":[-34.6762504577637,-34.676570892334,-34.677059173584,-34.6771392822266,-34.6776275634766,-34.6778373718262,-34.6777572631836,-34.6775894165039,-34.6780281066895,-34.6780700683594,-34.678108215332,-34.6781692504883,-34.6781997680664,-34.6785278320312,-34.6785774230957,-34.6787376403809,-34.6788177490234,-34.6791305541992,-34.6791687011719,-34.6792106628418,-34.6794891357422,-34.6798973083496,-34.6802787780762,-34.6803779602051]}]],[[{"lng":[-58.4306678771973,-58.4310989379883,-58.4300003051758,-58.4288902282715,-58.427848815918,-58.4266891479492,-58.4255867004395,-58.4244689941406,-58.42333984375,-58.4230194091797,-58.4223480224609,-58.4226875305176],"lat":[-34.6762504577637,-34.6756591796875,-34.6751098632812,-34.6745681762695,-34.6740608215332,-34.6735000610352,-34.6729507446289,-34.6724090576172,-34.6718292236328,-34.6716690063477,-34.671329498291,-34.6708374023438]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4300994873047,-58.4292068481445,-58.4287490844727,-58.4287300109863,-58.4287071228027,-58.4286575317383,-58.4286193847656,-58.4284973144531,-58.4283790588379,-58.4283485412598,-58.4283485412598,-58.4283485412598,-58.4283599853516,-58.4285278320312,-58.4285469055176,-58.4285583496094,-58.4285774230957,-58.4285888671875,-58.4285888671875,-58.4285774230957,-58.4288482666016,-58.4288291931152,-58.4288177490234,-58.4287567138672,-58.4286689758301,-58.4291877746582,-58.4303588867188,-58.4315376281738,-58.4327087402344,-58.4339866638184,-58.4340972900391],"lat":[-34.6762504577637,-34.676570892334,-34.6770477294922,-34.6782684326172,-34.6789207458496,-34.6789588928223,-34.6790084838867,-34.6791000366211,-34.6791496276855,-34.6792907714844,-34.6794395446777,-34.679500579834,-34.6795272827148,-34.679557800293,-34.6795997619629,-34.6800193786621,-34.6800994873047,-34.6802101135254,-34.6803207397461,-34.6804275512695,-34.6806297302246,-34.6807403564453,-34.6808700561523,-34.6809692382812,-34.681037902832,-34.6814880371094,-34.6821594238281,-34.682430267334,-34.683048248291,-34.6836280822754,-34.6842079162598,-34.6848297119141,-34.6848793029785]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":"#D55E00","weight":5,"opacity":0.5,"fill":false,"fillColor":"#D55E00","fillOpacity":0.2,"smoothFactor":1,"noClip":false},null,null,["Distancia: 0.212 | Duración: 2.82833333333333","Distancia: 0.5606 | Duración: 7.47333333333333","Distancia: 0.8659 | Duración: 11.545","Distancia: 0.7605 | Duración: 10.14","Distancia: 1.0738 | Duración: 14.3166666666667","Distancia: 1.3142 | Duración: 17.5916666666667"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addCircleMarkers","args":[-34.67634,-58.43086,10,null,null,{"interactive":true,"className":"","stroke":true,"color":"white","weight":5,"opacity":0.5,"fill":true,"fillColor":"white","fillOpacity":0.2},null,null,"Villa Jardín",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addCircleMarkers","args":[[-34.6774321969999,-34.6747724119999,-34.677808491,-34.6802223019999,-34.6708585779999,-34.6849180489999],[-58.4312477949999,-58.425721559,-58.4236162199999,-58.4348947599999,-58.4227167469999,-58.4340730729999],10,null,null,{"interactive":true,"className":"","stroke":true,"color":"gray","weight":5,"opacity":0.5,"fill":true,"fillColor":"gray","fillOpacity":0.2},null,null,["UNIDAD SANITARIA VILLA JARDIN","CENTRO DE SALUD VILLA CONSTITUCION","CENTRO DE SALUD EL TRIANGULO","UPA 3","CENTRO DE SALUD Y FOMENTO CAMPOMAR","CENTRO DE SALUD VILLA GIARDINO"],null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMiniMap","args":[null,null,"bottomright",150,150,19,19,-5,false,false,false,true,false,false,{"color":"#ff7800","weight":1,"clickable":false},{"color":"#000000","weight":1,"clickable":false,"opacity":0,"fillOpacity":0},{"hideText":"Hide MiniMap","showText":"Show MiniMap"},[]]}],"limits":{"lat":[-34.6849180489999,-34.6708374023438],"lng":[-58.4348947599999,-58.4223480224609]}},"evals":[],"jsHooks":[]}</script>
+                   color=&quot;gray&quot;) %&gt;%
+  addMiniMap(tiles=providers$CartoDB.DarkMatter)</code></pre>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-95be3949f598e053b356" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-95be3949f598e053b356">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.DarkMatter",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addPolylines","args":[[[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4315872192383,-58.4315376281738,-58.4313087463379],"lat":[-34.6762504577637,-34.676570892334,-34.677059173584,-34.6771392822266,-34.6774597167969]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4293403625488,-58.4282493591309,-58.4271697998047,-58.4260292053223,-58.4257583618164],"lat":[-34.6762504577637,-34.676570892334,-34.6760292053223,-34.6754875183105,-34.6749687194824,-34.6744079589844,-34.6747894287109]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4300994873047,-58.4295501708984,-58.4289398193359,-58.4281997680664,-58.4275283813477,-58.4274368286133,-58.4270477294922,-58.4261779785156,-58.4249687194824,-58.4236869812012,-58.4235877990723],"lat":[-34.6762504577637,-34.676570892334,-34.6770477294922,-34.6767883300781,-34.6765899658203,-34.6776275634766,-34.6785202026367,-34.6786499023438,-34.678539276123,-34.6783180236816,-34.6779899597168,-34.6776580810547,-34.6777992248535]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4315872192383,-58.4315376281738,-58.4326477050781,-58.4330978393555,-58.433177947998,-58.4333572387695,-58.4338073730469,-58.4338493347168,-58.4338798522949,-58.4338874816895,-58.433910369873,-58.4342079162598,-58.4342575073242,-58.4344673156738,-58.4345474243164,-58.4348602294922,-58.4348678588867,-58.4348793029785,-58.4347801208496,-58.4346199035645,-58.4344596862793,-58.4348182678223],"lat":[-34.6762504577637,-34.676570892334,-34.677059173584,-34.6771392822266,-34.6776275634766,-34.6778373718262,-34.6777572631836,-34.6775894165039,-34.6780281066895,-34.6780700683594,-34.678108215332,-34.6781692504883,-34.6781997680664,-34.6785278320312,-34.6785774230957,-34.6787376403809,-34.6788177490234,-34.6791305541992,-34.6791687011719,-34.6792106628418,-34.6794891357422,-34.6798973083496,-34.6802787780762,-34.6803779602051]}]],[[{"lng":[-58.4306678771973,-58.4310989379883,-58.4300003051758,-58.4288902282715,-58.427848815918,-58.4266891479492,-58.4255867004395,-58.4244689941406,-58.42333984375,-58.4230194091797,-58.4223480224609,-58.4226875305176],"lat":[-34.6762504577637,-34.6756591796875,-34.6751098632812,-34.6745681762695,-34.6740608215332,-34.6735000610352,-34.6729507446289,-34.6724090576172,-34.6718292236328,-34.6716690063477,-34.671329498291,-34.6708374023438]}]],[[{"lng":[-58.4306678771973,-58.4304389953613,-58.4300994873047,-58.4292068481445,-58.4287490844727,-58.4287300109863,-58.4287071228027,-58.4286575317383,-58.4286193847656,-58.4284973144531,-58.4283790588379,-58.4283485412598,-58.4283485412598,-58.4283485412598,-58.4283599853516,-58.4285278320312,-58.4285469055176,-58.4285583496094,-58.4285774230957,-58.4285888671875,-58.4285888671875,-58.4285774230957,-58.4288482666016,-58.4288291931152,-58.4288177490234,-58.4287567138672,-58.4286689758301,-58.4291877746582,-58.4303588867188,-58.4315376281738,-58.4327087402344,-58.4339866638184,-58.4340972900391],"lat":[-34.6762504577637,-34.676570892334,-34.6770477294922,-34.6782684326172,-34.6789207458496,-34.6789588928223,-34.6790084838867,-34.6791000366211,-34.6791496276855,-34.6792907714844,-34.6794395446777,-34.679500579834,-34.6795272827148,-34.679557800293,-34.6795997619629,-34.6800193786621,-34.6800994873047,-34.6802101135254,-34.6803207397461,-34.6804275512695,-34.6806297302246,-34.6807403564453,-34.6808700561523,-34.6809692382812,-34.681037902832,-34.6814880371094,-34.6821594238281,-34.682430267334,-34.683048248291,-34.6836280822754,-34.6842079162598,-34.6848297119141,-34.6848793029785]}]]],null,null,{"interactive":true,"className":"","stroke":true,"color":"#D55E00","weight":5,"opacity":0.5,"fill":false,"fillColor":"#D55E00","fillOpacity":0.2,"smoothFactor":1,"noClip":false},null,null,["Distancia: 0.212 | Duración: 2.82833333333333","Distancia: 0.5606 | Duración: 7.47333333333333","Distancia: 0.8659 | Duración: 11.545","Distancia: 0.7605 | Duración: 10.14","Distancia: 1.0738 | Duración: 14.3166666666667","Distancia: 1.3142 | Duración: 17.5916666666667"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addCircleMarkers","args":[-34.67634,-58.43086,10,null,null,{"interactive":true,"className":"","stroke":true,"color":"white","weight":5,"opacity":0.5,"fill":true,"fillColor":"white","fillOpacity":0.2},null,null,"Villa Jardín",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addCircleMarkers","args":[[-34.6774321969999,-34.6747724119999,-34.677808491,-34.6802223019999,-34.6708585779999,-34.6849180489999],[-58.4312477949999,-58.425721559,-58.4236162199999,-58.4348947599999,-58.4227167469999,-58.4340730729999],10,null,null,{"interactive":true,"className":"","stroke":true,"color":"gray","weight":5,"opacity":0.5,"fill":true,"fillColor":"gray","fillOpacity":0.2},null,null,["UNIDAD SANITARIA VILLA JARDIN","CENTRO DE SALUD VILLA CONSTITUCION","CENTRO DE SALUD EL TRIANGULO","UPA 3","CENTRO DE SALUD Y FOMENTO CAMPOMAR","CENTRO DE SALUD VILLA GIARDINO"],null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addMiniMap","args":[null,"CartoDB.DarkMatter","bottomright",150,150,19,19,-5,false,false,false,false,false,false,{"color":"#ff7800","weight":1,"clickable":false},{"color":"#000000","weight":1,"clickable":false,"opacity":0,"fillOpacity":0},{"hideText":"Hide MiniMap","showText":"Show MiniMap"},[]]}],"limits":{"lat":[-34.6849180489999,-34.6708374023438],"lng":[-58.4348947599999,-58.4223480224609]}},"evals":[],"jsHooks":[]}</script>
 <p><u><strong>Conclusión</strong></u></p>
 <p>A raíz de este proyecto, y para contextualizar, se evidencia que la
 mayor distribución de barrios populares se concentra principalmente en

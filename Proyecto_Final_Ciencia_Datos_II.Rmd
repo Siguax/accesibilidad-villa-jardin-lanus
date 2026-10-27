@@ -1,0 +1,790 @@
+---
+title: "Trabajo Practico Final - Ciencia de Datos II"
+author: "Silvia Prevettoni"
+date: "2025-08-22"
+output: html_document
+---
+
+
+# **Accesibilidad territorial a servicios de salud en Villa Jardín - Partido de Lanus - Análisis Geográfico** #
+
+En la actualidad, se estima que uno de cada diez habitantes en Argentina reside en un barrio popular. Cada vez más, la exclusión social y la segregación territorial de gran parte de la sociedad incrementan la desigualdad que ha caracterizado al país durante los últimos 40 años.
+Como primera mirada, los barrios populares del país se caracterizan por la coexistencia de los siguientes factores:   
+
+ - Altos niveles de hacinamiento.
+ - Falta de acceso por parte de sus habitantes a servicios básicos (agua, electricidad, cloacas y gas) y un fuerte predominio de redes de conexiones informales, debido a la ausencia del Estado y de empresas prestatarias.
+ - Prevalencia de la autoconstrucción habitacional y ubicación en lotes con tenencia de la tierra irregular o no regularizada, frecuentemente situados cerca de zonas expuestas a diversas clases de riesgos ambientales.
+
+Sin embargo, un cambio crucial ocurrió en 2016 con el inicio de un relevamiento de información básica a través del Registro Nacional de Barrios Populares (ReNaBap). Este proyecto no sólo impulsó un marco normativo que permitió definir y delimitar estos territorios de manera concreta, sino que también sistematizó datos para crear estadísticas públicas sobre estas familias y sus tierras.
+Por lo tanto, el proyecto que presento identifica y cuantifica los barrios populares a nivel nacional, mostrando la distribución de los barrios en el ámbito nacional y seleccionando el partido de Lanús (selección basada en mi residencia). En base a esto, las preguntas de investigación que se plantean son:
+
+¿Cuál es la localidad que tiene mayor predominio de barrios populares y dentro de esa localidad, ¿cuál es el barrio que tiene mayor cantidad de familias y viviendas?
+
+¿Cuál es el nivel de accesibilidad a los centros de salud que tiene el barrio seleccionado?
+
+
+Para comenzar, procedemos a activar las librerías;
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(sf)
+library(osrm)
+library(tidygeocoder)
+library(leaflet)
+library(ggmap)
+library(lubridate)
+library(osmdata)
+library(ggplot2)
+```
+
+El primer dataset corresponde a la base de datos del Renabap y a modo de introducción presento los datos de barrios populares de la República Argentina;
+
+```{r}
+popular <- st_read("Datos/renabap-datos-barrios-gpkg",
+               stringsAsFactors = TRUE, options = "ENCODING=UTF-8")
+```
+Exploramos el contenido:
+
+```{r}
+dim(popular)
+```
+El dataset inicial cuenta con 6467 registros y 18 variables.
+
+
+Los nombres de las variables son las siguientes;
+```{r}
+names(popular)
+```
+
+Vemos el resumen estadístico:
+```{r}
+summary(popular)
+```
+Podemos ver lo siguiente:
+
+ - La clasificación de barrio popular con mas registros es el asentamiento con un total de 5,253 registros.
+ - La mayor cantidad de viviendas en un barrio asciende a 14000 mientras que la menor es de 5.
+ - El barrio más poblado cuenta con 15400 familias, en contraste con el menos poblado, que tiene apenas 6.
+ - La década en la que se creo la mayor cantidad de barrios fue la del 2000.
+
+
+y también podemos utilzar la función class para ver la clase de datos del dataset.
+
+```{r}
+class(popular)
+```
+Se trata de un dataset espacial tipo "sf" compuesto por geometrías bidimensionales multipolígono, como bien indica la última columna geometry.
+
+Luego podemos ver la clase de cada variable;
+
+```{r}
+str(popular)
+```
+Visualizamos los datos;
+
+
+```{r}
+ggplot(popular, aes(x = fct_reorder(provincia, provincia, .fun = length))) + 
+  geom_bar(color = "black", fill = "#ffc20a", width=0.6) +
+  labs(title = "Cantidad de Barrios Populares por Provincia",
+  x="Provincias",
+  y="Cantidad",
+  caption = "Fuente: RENABAP")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  theme_minimal() +
+  coord_flip() 
+```
+
+El gráfico evidencia que la mayor concentración de barrios populares se encuentran en la provincia de Buenos Aires y luego en las provincias de Santa Fe, Chaco, Misiones y Tucumán.
+
+La provincia de Buenos Aires es el foco de nuestro interés. Al contar con más de 2,000 registros decidí reducir la muestra limitándola a los partidos con más de 3,000 familias.
+
+
+Filtre el dataset para seleccionar aquellos partidos donde la cantidad de familias supera las 3,000 familias.
+
+
+```{r}
+popuBue <-  popular %>% 
+filter(provincia=="Buenos Aires",
+       cantidad_familias_aproximada >3000)
+```
+
+
+Vemos la cantidad de registros y columnas.
+
+```{r}
+dim (popuBue)
+```
+En este dataset tenemos 13 registros con 18 variables.
+
+
+Pasamos a visualizarla;
+
+```{r}
+ggplot(popuBue, aes(x = fct_reorder(departamento, departamento, .fun = length))) + 
+  geom_bar(color = "black", fill = "#994f00", width=0.6) +
+  labs(title = "Distribución de partidos con más de 3000 familias en Buenos Aires",
+  x="Partidos",
+  y= "Cantidad",
+  caption = "Fuente: RENABAP")+
+  theme(axis.text.x = element_text(angle = 0, hjust = 1),
+        axis.text.y.right = element_text()) +
+  theme_minimal() +
+  coord_flip() 
+```
+
+
+El gráfico de barras muestra que el partido de Lomas de Zamora concentra la mayor cantidad de familias, seguido por el de Quilmes y General San Martin, que presentan valores similares entre si.
+
+
+Ahora si, seleccionamos el partido de Lanús.
+
+
+Filtramos el partido para analizar sus variables y buscar la respuesta a las preguntas planteadas en el proyecto.
+
+```{r}
+popular_Lanus <- popular %>% 
+  filter(departamento == "Lanús")
+```
+
+Verificamos que el dataset solo muestra los barrios de la localidad.
+```{r}
+head(popular_Lanus)
+```
+
+
+Revisamos los resultados.
+
+```{r}
+dim(popular_Lanus)
+```
+El dataset tiene 26 registros y 18 columnas.
+
+```{r}
+summary(popular_Lanus)
+```
+Grafiquemos algunas variables de interés;
+
+```{r}
+ggplot() + 
+    geom_bar(data= popular_Lanus, aes(x = decada_de_creacion, fill=localidad),
+             color = "black",
+             linewidth = 0.2)+
+  scale_fill_brewer() +
+    labs(
+    x = NULL, 
+    y = "Cantidad", 
+    fill = NULL,
+    title = "Creacion de barrios por decada por localidad"
+  ) +
+  theme_minimal() +           
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    legend.position = "bottom" 
+  )
+```
+
+
+La mayor parte de los barrios populares se crearon en la década de 1970, pero el crecimiento más significativo en las décadas de 1980 y 2000 ocurrió en Lanús Oeste.
+
+Veamos la cantidad por tipo de barrios en el partido.
+
+```{r}
+popular_Lanus_count <- popular_Lanus %>%
+  count(localidad, clasificacion_barrio) %>% 
+  group_by(localidad) %>% 
+  mutate(localidad_total= sum(n))
+ 
+```
+
+```{r}
+popular_Lanus_count
+```
+Según el conteo realizado anteriormente, lo visualizamos;
+
+```{r}
+  ggplot(popular_Lanus_count, aes(x= reorder(localidad, -localidad_total),
+                                  y=n, 
+                                  fill=clasificacion_barrio))+
+  geom_col(color="black", linewidth = 0.5) +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5))+
+    labs(
+    x = NULL, 
+    y = "Cantidad", 
+    fill = "clasificacion",
+    caption = "Fuente: RENABAP",
+    color = "black",
+    title = "Barrios por localidad y clasificación de barrio")+
+    theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+
+
+Aqui podemos ver que la localidad con mayor presencia de barrios populares es Lanús Oeste con 9 barrios, entre los cuáles 5 son villas y 4 son asentamientos, seguido por Valentina Alsina conformado por 6 barrios tipo villas. Cabe destacar que todas las localidades del partido estan conformadas por villas menos en Lanús Oeste y Remedios de Escalada.
+
+
+Como se ha observado, Lanús Oeste es la localidad que tiene más barrios populares. Por este motivo, veamos cuántas familias hay en esos barrios.
+
+```{r}
+ggplot(data = popular_Lanus, 
+       aes(x = reorder(nombre_barrio, cantidad_familias_aproximada),
+           y = cantidad_familias_aproximada, 
+           fill = nombre_barrio)) +
+  geom_col(fill = "#2c7bb6", alpha = 0.8, color = "black") +
+  geom_text(aes(label = format(cantidad_familias_aproximada, big.mark = ",")),
+            hjust = 0, size = 2.7) +
+  labs(
+    title = "Cantidad de Familias por barrio en Lanús Oeste",
+    subtitle = "Distribución de cantidad de familias",
+    x = NULL,  
+    y = NULL,
+    caption = "Fuente: RENABAP"
+  ) +
+  theme_minimal() +
+  coord_flip() +  
+  theme(
+    axis.text.y = element_text(hjust = 1),
+    legend.position = "none"  
+  )
+
+```
+
+
+
+Aqui se observan que la mayoría de familias se encuentra residiendo en el barrio de Villa Jardín con un total de 4,950 registros.
+
+
+Ahora vemos la cantidad de viviendas;
+
+
+```{r}
+ggplot(data = popular_Lanus, 
+       aes(x = reorder(nombre_barrio, cantidad_viviendas_aproximadas),
+           y = cantidad_viviendas_aproximadas, 
+           fill = nombre_barrio)) +
+  geom_col(fill = "#2c7bb6", alpha = 0.8, color = "black") +  
+  geom_text(aes(label = format(cantidad_viviendas_aproximadas, big.mark = ",")),
+            hjust = 0, size = 2.7) +  
+  labs(
+    title = "Cantidad de viviendas por barrio en Lanús Oeste",
+    subtitle = "Distribución de cantidad de viviendas",
+    x = NULL,  
+    y = NULL,
+    caption = "Fuente: RENABAP"
+  ) +
+  theme_minimal() +
+  coord_flip() +
+  theme(
+    axis.text.y = element_text(hjust = 1),  
+    legend.position = "none"  
+  )
+  
+```
+
+
+La mayoría de viviendas tambien, se encuentra en Villa Jardín con un total de 4,500 registros.
+
+Por lo tanto Villa Jardín, ubicado en Lanús Oeste es el barrio con mas  familias y viviendas registradas dentro del partido de Lanús, lo que da respuesta a nuestra primera pregunta del proyecto.
+
+
+
+Sabiendo esto, empecemos a cargar los mapas para continuar con la segunda pregunta del proyecto: ¿Cuál es el nivel de accesibilidad a los centros de salud de Villa Jardín?
+
+Aquí vemos la capa de polígonos de nuestro primer dataset.
+
+```{r}
+ggplot()+
+  geom_sf(data=popular_Lanus, aes(fill=localidad))
+```
+
+Luego determinamos la bounding box del Partido de Lanús.
+```{r}
+bbox_Lanus <- getbb("Partido de Lanús, Buenos Aires, Argentina")
+bbox_Lanus
+```
+Vemos que tiene 4 valores que delimitan la bounding box.
+
+Ahora usaremos el get_stadiamap () para descargar el mapa base, seleccionado el *Outdoor* como tipo de mapa.
+
+```{r}
+mapa_Lanus <- get_stadiamap(bbox = bbox_Lanus,
+                              maptype = "outdoors",
+                              zoom = 13)
+```
+
+
+Verificamos si se trata del mapa de Lanús.
+```{r}
+ggmap(mapa_Lanus)
+```
+
+
+Si, efectivamente es el mapa del partido de Lanús.
+
+
+Ahora descargamos el polígono para una mayor comprensión del territorio del partido.
+```{r}
+polygon_Lanus <- getbb("Partido de Lanús, Buenos Aires, Argentina",
+                            format_out = "sf_polygon")
+```
+
+Veamos el resultado.
+```{r}
+polygon_Lanus
+```
+Y lo visualizamos.
+Para esta visualización quite el relleno del polígono  y agregue un borde marcando el límite del partido.
+
+
+```{r}
+ggmap(mapa_Lanus)+
+  geom_sf(data=polygon_Lanus, fill=NA, color="#800020", lwd=0.75, inherit.aes = FALSE)+
+  labs(title="Partido de Lanús, Buenos Aires, Argentina",
+       caption="Fuente: OpenStreetMap") +
+  theme_void()
+
+```
+
+
+
+Vamos a ver como queda el mapa con todos las capas.
+
+```{r}
+ggmap(mapa_Lanus)+
+  geom_sf(data=popular_Lanus, fill="#984ea3", color=NA, inherit.aes = FALSE) +
+  geom_sf(data=polygon_Lanus, fill=NA, color="#984ea3", lwd=0.75, inherit.aes = FALSE) +
+ labs(title="Barrios Populares en el Partido de Lanús, Buenos Aires, Argentina",
+       caption="Fuente: OpenStreetMap")+
+  theme_void()+
+  theme(title=element_text(size=10, face = "bold"), 
+        plot.caption=element_text(face = "italic", colour = "gray35",size=7)) 
+```
+
+
+
+Aqui vemos la proporción de superficie m2 por cantidad de viviendas.
+
+
+```{r}
+ggmap(mapa_Lanus) +
+  geom_sf(data = popular_Lanus, 
+          aes(fill = superficie_m2/cantidad_viviendas_aproximadas), 
+          color = NA, 
+          inherit.aes = FALSE) +
+  geom_sf(data = polygon_Lanus, fill = NA, color = "black", lwd = 0.75, inherit.aes = FALSE) +
+  scale_fill_viridis_c(option = "magma", 
+                       name = "Superficie m2",
+                       labels = scales::comma) +
+  labs(title = "Superficie de barrio por cantidad de viviendas",
+       caption = "Fuente: OpenStreetMap") +
+  theme_void() +
+  theme(title = element_text(size = 10, face = "bold"), 
+        plot.caption = element_text(face = "italic", colour = "gray35", size = 7),
+        legend.position = "right")
+```
+
+
+
+**Claramente vemos que Villa Jardín es uno de los barrios más densamente poblados por la inmensa cantidad de viviendas que tiene**
+
+
+
+Filtramos el barrio de nuestra dataset de Lanús.
+
+```{r}
+villa_Jardin <- popular_Lanus%>% 
+  filter(nombre_barrio == "Villa Jardín")
+villa_Jardin
+```
+y veamoslo en un mapa interactivo usando Leaflet usando la información  geográfica de Villa Jardín.
+
+```{r}
+leaflet(villa_Jardin) %>%
+  addTiles() %>% 
+  addPolygons(popup = "Villa Jardín")
+```
+
+
+Bien! sabemos que la geolocalizacion fue exitosa ya que el lugar es correcto, pertenece a Villla Jardín.
+
+
+Ahora abriremos el dataset de hospitales públicos.
+```{r}
+hospitales <- read.csv("Datos/establecimientos_salud_publicos-2025.csv",
+                  header = TRUE,    
+                  sep = ";",       
+                  encoding = "UTF-8", 
+                  stringsAsFactors = TRUE) 
+```
+
+Vemos su composicion;
+```{r}
+dim(hospitales)
+```
+Tiene 3052 registros y 20 variables que representan todos los centros de salud de la provincia de Buenos Aires
+
+Los nombres de las variables son las siguientes:
+```{r}
+names(hospitales)
+```
+
+vemos el resumen estadístico.
+```{r}
+summary(hospitales)
+```
+Podemos ver:
+  
+  - La categoría que predomina son los Centros de Atencion Primaria de la Salud (C.A.P.S.) con un total de 2,121 registros.
+  - La mayoría es de origen municipal con 2,558 registros.
+  - La mayoría de establecimientos de salud se encuentran en La Plata con un total de 115 registros.
+
+Aqui vamos a filtrar y seleccionar los centros de salud en el partido de Lanús.
+
+```{r}
+hospitales_Lanus <- hospitales %>% 
+  filter(nde == "LANUS")
+```
+
+```{r}
+head(hospitales_Lanus)
+```
+
+```{r}
+dim(hospitales_Lanus)
+```
+El dataset nos queda con 61 registros y 20 variables.
+
+
+Vemos el resumen estadístico.
+```{r}
+summary(hospitales_Lanus)
+```
+Aqui observamos:
+
+- El centro de salud predominante son los Centros de Atencion Primaria de la Salud (C.A.P.S.) con 51 registros.
+- Lanús Oeste tiene 24 y Lanús Este tiene 21 establecimientos de salud.
+- La mayoría son municipales con 54 registros.
+
+Aqui vemos los centros de salud en las distintas localidades del partido.
+```{r}
+ggmap(mapa_Lanus) +
+  geom_bin2d(data = hospitales_Lanus, 
+             aes(x = long, y = lat), bins = 50) +
+  scale_fill_gradient(low = "green", high = "red") +
+  facet_wrap(~nba)
+```
+
+
+Vamos a ver un mapa interactivo para ver la ubicación de los establecimientos en el partido de Lanús.
+```{r}
+leaflet(hospitales_Lanus) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addMarkers(~long, ~lat,
+             popup = ~nor) 
+```
+
+Recordemos donde esta ubicado el barrio de Villa Jardín;
+
+```{r}
+leaflet(villa_Jardin) %>%
+  addTiles() %>% 
+  addPolygons(popup = "Villa Jardín")
+```
+
+
+Aqui contamos el número de establecimientos de salud por localidad dentro del partido de Lanús.
+
+```{r}
+hospitales_Lanus_count <- hospitales_Lanus %>%
+  count(nba) %>% 
+  group_by(nba) %>% 
+  mutate(localidad_total_hosp= sum(n))
+```
+
+```{r}
+hospitales_Lanus_count
+```
+
+y lo visualizamos.
+
+```{r}
+  ggplot(hospitales_Lanus_count, aes(x= reorder(nba, -localidad_total_hosp),
+                                  y=n))+
+  geom_col(fill = "#E1BE6A", alpha = 0.8, color = "black") +
+    labs(
+    title = "Distribucion de los Establecimientos de Salud por localidad",
+    subtitle = "Partido de Lanús",
+    x = NULL,  
+    y = "Cantidad de Centros de Salud",
+    caption = "Fuente: gob.ar"
+  ) +
+   theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Como dijimos antes, Lanús Oeste y Lanús Este son las localidades que tienen el mayor número de establecimientos de salud.
+
+
+Volvemos al dataset espacial mostrando las geometrías de Villa Jardín.
+
+```{r}
+villa_Jardin
+```
+
+Como estoy trabajando en un multipolígono, para obtener un punto de origen para poder calcular las Isócronas tuve que calcular el centroide del multipolígono
+
+```{r}
+centroide <- st_centroid(villa_Jardin)
+coords <- st_coordinates(centroide)
+coords
+```
+Estas serían las coordenadas del centro geográfico de Villa Jardín.
+
+
+**Analisis de distancias**
+
+El próximo paso es analizar las distancias mediante Isócronas para evaluar la accesibilidad a los Centros de Salud ubicados a menos de 20 minutos del centro geográfico de Villa Jardín.
+
+
+```{r}
+isocrona <- osrmIsochrone(loc = c(coords[1, "X"], coords[1, "Y"]),
+                     breaks = seq(from=0,to=20,by=5),
+                     res = 35,
+                     osrm.profile = "foot")
+```
+
+Resultado del análisis:
+```{r}
+isocrona
+```
+
+Lo visualizamos.
+
+
+```{r}
+ggplot()+
+  geom_sf(data=isocrona, aes(fill=isomax), color=NA)+
+  scale_fill_viridis_c(direction=-1)+
+  labs(fill="Minutos (Máx)")+
+  theme_minimal()
+```
+
+
+Vemos las áreas en las que se encuentran a 20, 15,10 y 5 minutos respectivamente.
+
+
+Al mapa de Isócronas le agregamos la ubicación del centro geográfico de Villa Jardín.
+```{r}
+leaflet(isocrona) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addPolygons(fillColor = ~colorBin("YlOrRd", domain = isocrona$isomax)(isomax),
+  color = NA,
+  fillOpacity = 0.5) %>%
+  addMarkers(data=centroide)%>%
+  addMiniMap(tiles=providers$CartoDB.Positron)
+```
+
+
+Encontremos cuantos establecimientos de salud se encuentran dentro de las isócronas calculadas.
+
+
+¿Cuál es el CRS  de las isócronas?
+```{r}
+st_crs(isocrona)
+```
+Tranformamos el dataset de hospitales Lanús a geográfico.
+
+```{r}
+hospitales_geo <- hospitales_Lanus %>%
+  st_as_sf(coords=c("long", "lat"), crs=4326)
+```
+
+Desactivamos la función de geometría esférica.
+```{r}
+sf_use_s2(FALSE)
+```
+y vemos el resultado.
+
+```{r}
+head(hospitales_geo)
+```
+Realizamos la intersección de ambos datasets para ver el número de centros de salud que se solapan con la isócrona calculada.
+
+```{r}
+hospitales_geo <- st_intersection(hospitales_geo, isocrona)
+```
+
+```{r}
+hospitales_geo
+```
+
+```{r}
+dim(hospitales_geo)
+```
+
+Existen 6 unidades y centros de salud ubicados a menos de 20 minutos a pié del punto central de Villa Jardín.
+
+
+```{r}
+ggplot()+
+  geom_bar(data=hospitales_geo, aes(x=as.factor(isomax)), fill="#CC79A7", color="black")+
+  labs(title="Establecimientos de Salud cercanos a Villa Jardín",
+       x="Distancia máxima (minutos)",
+       y="Cantidad de establecimientos")+
+  theme_light()
+```
+
+Podemos ver que solamente hay un centro de salud a 5 minutos a pié y la mayoría esta a 15 minutos.
+
+
+Veamos un mapa interactivo.
+```{r}
+leaflet(isocrona) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addPolygons(fillColor = ~colorBin("YlOrRd", domain = isocrona$isomax)(isomax),
+  color = NA,
+  fillOpacity = 0.5) %>%
+  addMarkers(data=centroide,
+             popup = "Villa Jardín") %>%
+  addCircles(data=hospitales_geo,
+             popup = ~nor,
+             color = "black")%>%
+  addMiniMap(tiles=providers$CartoDB.Positron)
+```
+
+**Calculemos las distancias y duraciones de los centros/Unidades de salud de Villa Jardín**
+
+
+Para visualizarlo en un mapa, debemos convertirla en un dataframe.
+```{r}
+class(coords)
+```
+
+```{r}
+coords <- data.frame(X = -58.43086, Y = -34.67634) 
+```
+
+Vemos si la estructura de datos cambio.
+```{r}
+class(coords)
+```
+
+Calcularemos la distancia y duración de todos los centros/unidades sanitarios que se encuentren a menos de 20 minutos a pié
+
+Utilizaremos la función osrmRoute ().
+```{r}
+ruteo_función <- function(nombre_origen, lon_origen, lat_origen,
+                          nombre_destino, lon_destino, lat_destino)
+  {
+  ruta <- osrmRoute(src = c(lon_origen, lat_origen),
+                    dst = c(lon_destino, lat_destino),
+                    overview = "full",
+                    osrm.profile = "foot")
+  
+  ruta %>%
+  mutate(src=nombre_origen,
+         dst=nombre_destino)
+}
+```
+
+Transformamos el dataset espacial a tradicional para utilizar longitud y latitud.
+
+```{r}
+hospitales_geo <- hospitales_geo %>%
+  mutate(long = st_coordinates(.)[,1],
+         lat  = st_coordinates(.)[,2]) %>%
+  st_drop_geometry()
+```
+
+```{r}
+hospitales_geo
+```
+
+Asignamos un vector para el input.
+
+```{r}
+ruteo2 <- list("Unidad de Salud", coords$X, coords$Y,
+               hospitales_geo$nor, hospitales_geo$long, hospitales_geo$lat)
+```
+
+
+```{r}
+ruteo2 <- pmap(ruteo2, ruteo_función)
+```
+
+
+```{r}
+summary(ruteo2)
+```
+
+```{r}
+ruteo2 <- ruteo2 %>% 
+  reduce(rbind)
+```
+
+
+```{r}
+summary(ruteo2)
+
+```
+Podemos observar lo siguiente:
+
+ - La duración promedio es de 10,64 minutos y la distancia promedio es de 0,79km.
+ - El recorrido más corto es de 0,21km y el más largo de 1,31km.
+ - El recorrido de menor duración es en 2,82 min y el de mayor es de 17,59 min.
+
+¿Cuál es el Centro Sanitario ubicado a 5 minutos a pié y a que distancia?
+
+
+```{r}
+hospitales1 <- hospitales_geo %>%
+  filter(isomax==5)
+```
+
+```{r}
+hospitales1
+```
+
+El centro sanitario más cercano es la Unidad Sanitaria Villa Jardin ubicado en Emilio Castro 3823 situado a 0.21km del centro del barrio y tardaríamos a pié 2,82 minutos
+
+y el centro mas lejano:
+```{r}
+hospitales18 <- hospitales_geo %>%
+  filter(isomax==20)
+```
+
+```{r}
+head(hospitales18)
+```
+
+El centro mas lejano es el Centro de Salud Villa Giardino ubicado en Armenia 3114 situado a 1,31km y a 18 minutos caminando.
+
+Visualizemos en el mapa los recorridos de los 6 centros sanitarios situados a menos de 20 minutos a pié.
+```{r}
+leaflet(ruteo2) %>% 
+    addProviderTiles(providers$CartoDB.DarkMatter) %>% 
+    addPolylines(color = "#D55E00",
+                 label = paste("Distancia:", ruteo2$distance, "|", 
+                               "Duración:", ruteo2$duration))%>%
+  addCircleMarkers(data=coords, ~X, ~Y,
+                   popup = "Villa Jardín",
+                   color="white") %>%
+  addCircleMarkers(data=hospitales_geo, ~long, ~lat,
+                   popup = ~nor,
+                   color="gray") %>%
+  addMiniMap(tiles=providers$CartoDB.DarkMatter)
+```
+
+<u>**Conclusión**</u>
+
+A raíz de este proyecto, y para contextualizar, se evidencia que la mayor distribución de barrios populares se concentra principalmente en la provincia de Buenos Aires, seguida en menor medida por las provincias de Santa Fe y Chaco. En estas provincias, la tipología predominante de barrios populares son los asentamientos informales.
+
+Dentro de la provincia de Buenos Aires, cabe enfatizar que la Zona Sur alberga las localidades con mayor cantidad de barrios populares que superan las 3000 familias por barrio. Es el caso de Lomas de Zamora, seguido por Quilmes. Asimismo, en la Zona Oeste, destaca el partido de General San Martín.
+
+La localidad de Lanús Oeste, en el partido de Lanús, es donde se encuentra la mayoría de barrios populares, en sus diferentes clasificaciones (asentamientos y villas), los mismos creados en la década de 1970. Dentro de esa localidad, el barrio de Villa Jardín alberga la mayor cantidad de familias y viviendas. Aunque existen otros barrios con mayor superficie, Villa Jardín presenta la mayor densidad de población.
+
+La respuesta a la segunda pregunta del proyecto se refiere a la accesibilidad del barrio popular a los centros de salud. Cabe mencionar que Villa Jardín cuenta con seis centros o unidades sanitarias a menos de 20 minutos de caminata. La más cercana es la Unidad de Salud Villa Jardín, ubicada exactamente a 2,82 minutos (212 metros), mientras que la más lejana es el Centro de Salud Villa Giardino, que se encuentra a 1,31 km y se tarda aproximadamente 18 minutos en llegar a pie.

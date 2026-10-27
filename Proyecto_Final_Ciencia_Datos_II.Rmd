@@ -779,11 +779,12 @@ head(hospitales18)
 El centro mas lejano es el Centro de Salud Villa Giardino ubicado en Armenia 3114 situado a 1,31km y a 18 minutos caminando.
 
 Visualizemos en el mapa los recorridos de los 6 centros sanitarios situados a menos de 20 minutos a pié.
+
 ```{r}
 leaflet(ruteo2) %>% 
   addTiles(
-    urlTemplate = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
-    options = tileOptions(attribution = "© Stadia Maps © OpenStreetMap contributors")
+    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options = tileOptions(attribution = "© OpenStreetMap contributors")
   ) %>%
   addPolylines(color = "#D55E00",
                label = paste("Distancia:", ruteo2$distance, "|", 
@@ -794,10 +795,7 @@ leaflet(ruteo2) %>%
   addCircleMarkers(data = hospitales_geo, ~long, ~lat,
                    popup = ~nor,
                    color = "gray") %>%
-  addMiniMap(
-    tiles = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
-    toggleDisplay = TRUE
-  )
+  addMiniMap(toggleDisplay = TRUE)
 ```
 
 <u>**Conclusión**</u>

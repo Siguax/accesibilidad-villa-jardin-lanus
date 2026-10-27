@@ -481,7 +481,10 @@ ggmap(mapa_Lanus) +
 Vamos a ver un mapa interactivo para ver la ubicación de los establecimientos en el partido de Lanús.
 ```{r}
 leaflet(hospitales_Lanus) %>%
-  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addTiles(
+    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options = tileOptions(attribution = "© OpenStreetMap contributors")
+  ) %>%
   addMarkers(~long, ~lat,
              popup = ~nor) 
 ```
@@ -580,12 +583,18 @@ Vemos las áreas en las que se encuentran a 20, 15,10 y 5 minutos respectivament
 Al mapa de Isócronas le agregamos la ubicación del centro geográfico de Villa Jardín.
 ```{r}
 leaflet(isocrona) %>%
-  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addTiles(
+    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options = tileOptions(attribution = "© OpenStreetMap contributors")
+  ) %>%
   addPolygons(fillColor = ~colorBin("YlOrRd", domain = isocrona$isomax)(isomax),
-  color = NA,
-  fillOpacity = 0.5) %>%
-  addMarkers(data=centroide)%>%
-  addMiniMap(tiles=providers$CartoDB.Positron)
+              color = NA,
+              fillOpacity = 0.5) %>%
+  addMarkers(data = centroide) %>%
+  addMiniMap(
+    tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    toggleDisplay = TRUE
+  )
 ```
 
 
@@ -644,16 +653,22 @@ Podemos ver que solamente hay un centro de salud a 5 minutos a pié y la mayorí
 Veamos un mapa interactivo.
 ```{r}
 leaflet(isocrona) %>%
-  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addTiles(
+    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options = tileOptions(attribution = "© OpenStreetMap contributors")
+  ) %>%
   addPolygons(fillColor = ~colorBin("YlOrRd", domain = isocrona$isomax)(isomax),
-  color = NA,
-  fillOpacity = 0.5) %>%
-  addMarkers(data=centroide,
+              color = NA,
+              fillOpacity = 0.5) %>%
+  addMarkers(data = centroide,
              popup = "Villa Jardín") %>%
-  addCircles(data=hospitales_geo,
+  addCircles(data = hospitales_geo,
              popup = ~nor,
-             color = "black")%>%
-  addMiniMap(tiles=providers$CartoDB.Positron)
+             color = "black") %>%
+  addMiniMap(
+    tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    toggleDisplay = TRUE
+  )
 ```
 
 **Calculemos las distancias y duraciones de los centros/Unidades de salud de Villa Jardín**
@@ -766,17 +781,23 @@ El centro mas lejano es el Centro de Salud Villa Giardino ubicado en Armenia 311
 Visualizemos en el mapa los recorridos de los 6 centros sanitarios situados a menos de 20 minutos a pié.
 ```{r}
 leaflet(ruteo2) %>% 
-    addProviderTiles(providers$CartoDB.DarkMatter) %>% 
-    addPolylines(color = "#D55E00",
-                 label = paste("Distancia:", ruteo2$distance, "|", 
-                               "Duración:", ruteo2$duration))%>%
-  addCircleMarkers(data=coords, ~X, ~Y,
+  addTiles(
+    urlTemplate = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+    options = tileOptions(attribution = "© Stadia Maps © OpenStreetMap contributors")
+  ) %>%
+  addPolylines(color = "#D55E00",
+               label = paste("Distancia:", ruteo2$distance, "|", 
+                             "Duración:", ruteo2$duration)) %>%
+  addCircleMarkers(data = coords, ~X, ~Y,
                    popup = "Villa Jardín",
-                   color="white") %>%
-  addCircleMarkers(data=hospitales_geo, ~long, ~lat,
+                   color = "white") %>%
+  addCircleMarkers(data = hospitales_geo, ~long, ~lat,
                    popup = ~nor,
-                   color="gray") %>%
-  addMiniMap(tiles=providers$CartoDB.DarkMatter)
+                   color = "gray") %>%
+  addMiniMap(
+    tiles = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+    toggleDisplay = TRUE
+  )
 ```
 
 <u>**Conclusión**</u>

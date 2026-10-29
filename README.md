@@ -1,91 +1,164 @@
-# Accesibilidad territorial a servicios de salud en Villa Jardín — Partido de Lanús
+# 🧠 Depresión en Estudiantes Universitarios — Modelo Predictivo
 
-Análisis geográfico de la distribución de barrios populares en Argentina y de la accesibilidad a centros de salud en Villa Jardín (Lanús), a partir de datos oficiales del **ReNaBap** y herramientas geoespaciales en R.
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Ver%20an%C3%A1lisis-brightgreen)](https://siguax.github.io/depresion-estudiantes-ml/)
+[![R](https://img.shields.io/badge/R-4.x-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
+[![tidymodels](https://img.shields.io/badge/tidymodels-%E2%9C%94-orange)](https://www.tidymodels.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 📌 Contexto y pregunta de investigación
+> Análisis exploratorio y modelo de regresión logística para predecir depresión en estudiantes universitarios a partir de variables académicas, laborales y socioeconómicas.
 
-En Argentina, se estima que uno de cada diez habitantes reside en un barrio popular. La exclusión social y la segregación territorial incrementan la desigualdad que ha caracterizado al país durante las últimas décadas. Los barrios populares se caracterizan por:
+## 📌 Descripción del proyecto
 
-- Altos niveles de hacinamiento.
-- Falta de acceso a servicios básicos (agua, electricidad, cloacas y gas), con predominio de conexiones informales.
-- Prevalencia de la autoconstrucción habitacional y tenencia irregular de la tierra, frecuentemente en zonas expuestas a riesgos ambientales.
+Este repositorio contiene un flujo completo de **ciencia de datos** aplicado a un problema de salud mental:
 
-Un cambio crucial ocurrió en **2016** con el inicio del relevamiento del **ReNaBap**, que impulsó un marco normativo para definir y delimitar estos territorios, y sistematizó datos para crear estadísticas públicas sobre estas familias y sus tierras.
+1. **Exploración** de un dataset público con ~28 000 estudiantes.
+2. **Preprocesamiento** con recetas de `tidymodels` (agrupación de categorías, manejo de desconocidos, *downsampling*).
+3. **Modelado** con regresión logística binomial y validación cruzada estratificada.
+4. **Evaluación** con métricas de clasificación (accuracy, AUC-ROC, matriz de confusión).
 
-Este proyecto identifica y cuantifica los barrios populares a nivel nacional, muestra su distribución y selecciona el **partido de Lanús** para analizar la accesibilidad a servicios de salud en el barrio **Villa Jardín**.
+El objetivo es **identificar factores asociados a la depresión** y construir un clasificador con buen poder discriminativo.
 
-Las preguntas que guían el trabajo son:
+> ⚠️ **Aviso:** este proyecto es de carácter **educativo y exploratorio**. No constituye una herramienta de diagnóstico clínico.
 
-1. ¿Cuál es la localidad con mayor predominio de barrios populares y, dentro de ella, cuál es el barrio con mayor cantidad de familias y viviendas?
-2. ¿Cuál es el nivel de accesibilidad a los centros de salud del barrio seleccionado?
+## 📊 Dataset
 
-## 📂 Fuente de datos
+| | |
+|---|---|
+| **Fuente** | [Student Depression Dataset — Kaggle](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset/data) |
+| **Registros** | 27 901 |
+| **Variables** | 18 |
+| **Variable objetivo** | `Depression` → `no_depresivo` / `depresivo` |
 
-- **ReNaBap** (Registro Nacional de Barrios Populares) — datos abiertos.
-- **OpenStreetMap** — descarga de información geoespacial vía `osmdata`.
-- **Bases de datos espaciales** para mapas base y ruteo.
+### Variables principales
 
-## 🎯 Objetivos
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `Gender` | Categórica | Género del estudiante |
+| `Age` | Numérica | Edad en años |
+| `Profession` | Categórica | Ocupación (agrupada en `Other` si es poco frecuente) |
+| `Work Pressure` | Numérica | Presión laboral percibida |
+| `CGPA` | Numérica | Promedio acumulado de calificaciones |
+| `Study Satisfaction` | Numérica | Satisfacción con los estudios |
+| `Job Satisfaction` | Numérica | Satisfacción laboral |
+| `Sleep Duration` | Categórica | Horas promedio de sueño |
+| `Dietary Habits` | Categórica | Hábitos alimenticios |
+| `Degree` | Categórica | Nivel de estudios |
+| `Have you ever had suicidal thoughts` | Categórica | Ideación suicida |
+| `Work/study hours` | Numérica | Horas de estudio/trabajo |
+| `Financial stress` | Numérica | Estrés financiero |
+| `Family History of Mental Illness` | Categórica | Antecedentes familiares |
 
-- Identificar y cuantificar los barrios populares a nivel nacional.
-- Analizar la distribución de barrios populares por provincia y localidad.
-- Seleccionar el partido de Lanús y caracterizar sus barrios populares.
-- Medir la accesibilidad a centros de salud desde Villa Jardín mediante isócronas y ruteo peatonal.
+---
 
-## 🛠️ Herramientas y técnicas utilizadas
+## 🛠️ Stack técnico
 
-- **Lenguaje:** R
-- **Manipulación de datos:** `tidyverse`, `dplyr`, `lubridate`
-- **Datos espaciales:** `sf` (unión de datasets espaciales y tradicionales, transformación a objetos espaciales)
-- **Descarga de datos geoespaciales:** `osmdata` (OpenStreetMap)
-- **Mapas base:** `ggmap`
-- **Mapas interactivos:** `leaflet`
-- **Geolocalización:** `tidygeocoder`
-- **Isócronas y ruteo peatonal:** `osrm`
-- **Visualización:** `ggplot2`
-- **Documento:** R Markdown con salida en HTML
+| Categoría | Herramientas |
+|---|---|
+| **Lenguaje** | R (≥ 4.2) |
+| **Manipulación** | `dplyr`, `tidyr`, `tidyverse` |
+| **Modelado** | `tidymodels`, `parsnip`, `recipes`, `workflows`, `rsample` |
+| **Balanceo de clases** | `themis` (`step_downsample`) |
+| **EDA** | `skimr`, `DataExplorer`, `GGally` |
+| **Multicolinealidad** | `car` (`vif`) |
+| **Documento** | `knitr`, `rmarkdown` |
+| **Paralelización** | `doParallel` |
+
+---
+
+## 🔬 Metodología
+
+### 1️⃣ Análisis exploratorio (EDA)
+- Distribución de variables continuas (densidades).
+- Matriz de correlación entre variables numéricas.
+- Conteo de valores ausentes por variable.
+- Revisión de cardinalidad en `Profession` y `Degree`.
+- Balance de la variable objetivo (`Depression`).
+
+### 2️⃣ Preprocesamiento
+- Agrupación de profesiones poco frecuentes → `Other`.
+- Eliminación de `City` (irrelevante para el modelo).
+- Recodificación de `Depression` como factor.
+- Receta de `tidymodels`:
+  - `step_unknown()` — maneja niveles desconocidos en test.
+  - `step_downsample()` — corrige el desbalance de clases.
+  - `step_other()` — agrupa categorías raras en `Profession`.
+
+### 3️⃣ Modelado
+- División estratificada **train/test** (`initial_split`).
+- **Validación cruzada de 10 folds** (`vfold_cv`) con estratificación.
+- Modelo: **regresión logística binomial** (`logistic_reg`).
+- Flujo reproducible con `workflow()` y `fit_resamples()`.
+- Ajuste final con `last_fit()` sobre el set de test.
+
+### 4️⃣ Evaluación
+- **Accuracy** y **AUC-ROC** por fold.
+- Curva ROC superpuesta por fold.
+- **Matriz de confusión** sobre el set de test.
+
+---
+
+## 📈 Resultados principales
+
+| Métrica | Valor |
+|---|---|
+| **Accuracy (train)** | ≈ 84 % |
+| **AUC-ROC (train)** | ≈ 0.92 |
+| **VIF (multicolinealidad)** | Todos los valores < 1.5 ✅ |
+
+**Hallazgos clave:**
+- No se detectó multicolinealidad problemática, a pesar de la alta correlación entre `Job Satisfaction` y `Work Pressure` (r ≈ 0.77).
+- El modelo logra una discriminación sólida (AUC ≈ 0.92) gracias al *downsampling* aplicado en la receta.
+- La matriz de confusión muestra un buen equilibrio entre verdaderos positivos y verdaderos negativos.
+
+---
+### Paquetes utilizados
+
+```r
+install.packages(c(
+  "tidyverse", "tidymodels", "skimr", "GGally",
+  "themis", "DataExplorer", "car", "knitr",
+  "rmarkdown", "doParallel"
+))
+```
 
 ## 📁 Estructura del repositorio
 
 ```
-.
+depresion-estudiantes-ml/
 ├── README.md
-├── Proyecto_Final_Ciencia_Datos_II.Rmd # Código fuente del análisis
-└── Proyecto_Final_Ciencia_Datos_II.html # Documento renderizado (abrir en el navegador)
+├── index.html          ← acá, en la raíz
+├── Trabajo_Practico_Final.Rmd
+├── student_depression_dataset.csv
+├── LICENSE
+└── .gitignore
 ```
 
-## ▶️ Ver el análisis completo
-
-👉 [Hacé clic acá para ver el trabajo renderizado](https://siguax.github.io/accesibilidad-villa-jardin-lanus/Proyecto_Final_Ciencia_Datos_II.html)
-
-## 🛠️ Cómo visualizar el proyecto
+## ▶️ Cómo visualizar el proyecto
 
 1. Descargá o cloná este repositorio:
    ```bash
-   git clone https://github.com/Siguax/accesibilidad-villa-jardin-lanus.git
+   git clone https://github.com/siguax/depresion-estudiantes-ml.git
+   cd depresion-estudiantes-ml
    ```
-2. Abrí el archivo **`Proyecto_Final_Ciencia_Datos_II.html`** en cualquier navegador web (Chrome, Firefox, Edge).
+2. Abrí el archivo **`index.html`** en cualquier navegador web (Chrome, Firefox, Edge).
    - No necesitás instalar R para ver los resultados.
+3. Si querés reproducir el análisis, abrí el archivo **`Trabajo_Practico_Final.Rmd`** en RStudio y ejecutá **Knit**.
 
-3. Si querés reproducir el análisis, abrí el archivo Proyecto_Final_Ciencia_Datos_II.Rmd en RStudio y ejecutá **Knit**.
+## 🌐 Ver el reporte en línea
+👉 **[https://siguax.github.io/depresion-estudiantes-ml/](https://siguax.github.io/depresion-estudiantes-ml/)**
 
-## 📊 Principales hallazgos
+## 📚 Referencias
+- Kuhn, M. & Silge, J. (2022). *Tidy Modeling with R*. O'Reilly. https://www.tmwr.org/
+- Kaggle. *Student Depression Dataset*. https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset
+- R Core Team (2024). *R: A Language and Environment for Statistical Computing*.
 
-- La mayor distribución de barrios populares se concentra en la provincia de Buenos Aires, seguida por Santa Fe y Chaco. La tipología predominante son los asentamientos informales.
-- En la provincia de Buenos Aires, la Zona Sur alberga las localidades con mayor cantidad de barrios populares (más de 3000 familias por barrio): Lomas de Zamora, seguida por Quilmes. En la Zona Oeste destaca General San Martín.
-- Lanús Oeste (partido de Lanús) concentra la mayoría de barrios populares, creados en la década de 1970. Dentro de esa localidad, Villa Jardín alberga la mayor cantidad de familias y viviendas, y presenta la mayor densidad de población aunque no la mayor superficie.
-- Villa Jardín cuenta con 6 centros o unidades sanitarias a menos de 20 minutos de caminata. La más cercana es la Unidad de Salud Villa Jardín (2,82 minutos / 212 metros), y la más lejana es el Centro de Salud Villa Giardino (1,31 km / ~18 minutos a pie).
+## 📄 Licencia
+Distribuido bajo la licencia MIT. Consultá LICENSE para más detalles.
 
-## 📚 Temas del curso aplicados
-
-- Información geográfica y mapas.
-- Análisis y geoprocesamiento de datos.
-- Detección de patrones espaciales y temporales.
-- Descarga de datos espaciales de repositorios online.
-- Geolocalización de información y análisis de movimientos en la ciudad.
-
-## 👩‍💻 Autora
+## ✉️ Contacto
 **Silvia Prevettoni**
-- GitHub: [@Siguax](https://github.com/Siguax)
-- LinkedIn: [silvia-prevettoni](https://www.linkedin.com/in/silvia-prevettoni)
-- Email: [silvia.prevettoni@gmail.com](mailto:silvia.prevettoni@gmail.com)
+
+- 🐙 GitHub: [@Siguax](https://github.com/Siguax)
+- 💼 LinkedIn: [silvia-prevettoni](https://www.linkedin.com/in/silvia-prevettoni)
+- 📧 Email: [silvia.prevettoni@gmail.com](mailto:silvia.prevettoni@gmail.com)
+

@@ -116,7 +116,7 @@ accesibilidad-villa-jardin-lanus/
 - Geolocalización de información y análisis de movimientos en la ciudad.
 
 ## 📄 Licencia
-Distribuido bajo la licencia MIT. Consultá LICENSE para más detalles.
+Distribuido bajo la licencia **MIT**. Consultá [`LICENSE`](LICENSE) para más detalles.
 
 ## 👩‍💻 Autora
 **Silvia Prevettoni**

@@ -2,7 +2,8 @@
 title: "Trabajo Practico Final - Ciencia de Datos II"
 author: "Silvia Prevettoni"
 date: "2025-08-22"
-output: html_document
+output: html_document:
+  self_contained: false
 ---
 
 

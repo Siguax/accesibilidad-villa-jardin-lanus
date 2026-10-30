@@ -4,7 +4,7 @@ author: "Silvia Prevettoni"
 date: "2025-08-22"
 output:
   html_document:
-    self_contained: false
+    self_contained: true
 ---
 
 

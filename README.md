@@ -1,28 +1,23 @@
-# 🗺️ Accesibilidad territorial a servicios de salud en Villa Jardín — Partido de Lanús
+# 🗺️ Análisis geoespacial de accesibilidad a salud en un barrio popular: caso Villa Jardín (Lanús)
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Ver%20an%C3%A1lisis-brightgreen)](https://siguax.github.io/accesibilidad-villa-jardin-lanus/Proyecto_Final_Ciencia_Datos_II.html)
 [![R](https://img.shields.io/badge/R-4.x-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
 [![sf](https://img.shields.io/badge/sf-geoespacial-blue)](https://r-spatial.github.io/sf/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Análisis geográfico de la distribución de barrios populares en Argentina y de la accesibilidad a centros de salud en Villa Jardín (Lanús), a partir de datos oficiales del **ReNaBap** y herramientas geoespaciales en R.
+> Análisis geoespacial aplicado a la planificación sanitaria en barrios populares
 
-## 📌 Contexto y pregunta de investigación
+## 📌 Problema de negocio
 
-En Argentina, se estima que **uno de cada diez habitantes reside en un barrio popular**. La exclusión social y la segregación territorial incrementan la desigualdad que ha caracterizado al país durante las últimas décadas. Los barrios populares se caracterizan por:
+En Argentina, uno de cada diez habitantes reside en un barrio popular. La segregación territorial y la falta de acceso a servicios básicos generan desigualdades que impactan directamente en la salud de la población. La pregunta que guía este análisis es concreta: ¿qué tan accesibles son los centros de salud a pie para los residentes de Villa Jardín, el barrio popular más denso del partido de Lanús?
 
-- Altos niveles de hacinamiento.
-- Falta de acceso a servicios básicos (agua, electricidad, cloacas y gas), con predominio de conexiones informales.
-- Prevalencia de la autoconstrucción habitacional y tenencia irregular de la tierra, frecuentemente en zonas expuestas a riesgos ambientales.
+Responder esta pregunta permite a municipios, organismos de salud pública y organizaciones sociales priorizar intervenciones de accesibilidad peatonal y planificar la apertura de nuevos puntos de atención en territorios donde la distancia a un centro de salud puede ser una barrera crítica.
 
-Un cambio crucial ocurrió en **2016** con el inicio del relevamiento del **ReNaBap**, que impulsó un marco normativo para definir y delimitar estos territorios, y sistematizó datos para crear estadísticas públicas sobre estas familias y sus tierras.
-
-Este proyecto identifica y cuantifica los barrios populares a nivel nacional, muestra su distribución y selecciona el **partido de Lanús** para analizar la accesibilidad a servicios de salud en el barrio **Villa Jardín**.
-
-### Preguntas de investigación
-
-1. ¿Cuál es la localidad con mayor predominio de barrios populares y, dentro de ella, cuál es el barrio con mayor cantidad de familias y viviendas?
-2. ¿Cuál es el nivel de accesibilidad a los centros de salud del barrio seleccionado?
+## 🎯 Objetivos
+- Identificar y cuantificar los barrios populares a nivel nacional a partir de datos oficiales.
+- Analizar la distribución de barrios populares por provincia y localidad.
+- Caracterizar los barrios populares del partido de Lanús y seleccionar el de mayor densidad poblacional.
+- Medir la accesibilidad peatonal a centros de salud desde Villa Jardín mediante isócronas y ruteo, cuantificando distancias y tiempos de recorrido.
 
 
 ## 📂 Fuente de datos
@@ -33,30 +28,53 @@ Este proyecto identifica y cuantifica los barrios populares a nivel nacional, mu
 - **Bases de datos espaciales** para mapas base y ruteo.
 
 
-## 🎯 Objetivos
+## 🛠️ Stack tecnológico
 
-- Identificar y cuantificar los barrios populares a nivel nacional.
-- Analizar la distribución de barrios populares por provincia y localidad.
-- Seleccionar el partido de Lanús y caracterizar sus barrios populares.
-- Medir la accesibilidad a centros de salud desde Villa Jardín mediante isócronas y ruteo peatonal.
-
-## 🛠️ Herramientas y técnicas utilizadas
-
-
-| Categoría | Herramientas |
-|---|---|
-| **Lenguaje** | R |
-| **Manipulación de datos** | `tidyverse`, `dplyr` |
-| **Datos espaciales** | `sf` (unión de datasets espaciales y tradicionales, transformación a objetos espaciales) |
-| **Descarga de datos geoespaciales** | `osmdata` (OpenStreetMap) |
-| **Mapas base** | `ggmap`, `get_stadiamap` |
-| **Mapas interactivos** | `leaflet` |
-| **Geolocalización** | `tidygeocoder` |
-| **Isócronas y ruteo peatonal** | `osrm` (`osrmIsochrone`, `osrmRoute` con perfil `foot`) |
-| **Visualización** | `ggplot2` |
-| **Documento** | R Markdown (`knitr`/`rmarkdown`) con salida en HTML |
+- R · sf · tidyverse · dplyr · osmdata · osrm · leaflet · ggplot2 · ggmap · tidygeocoder · R Markdown
+- Manipulación y análisis espacial: sf para unión de datasets espaciales y tabulares, transformación de objetos espaciales y operaciones geométricas.
+- Descarga de datos geoespaciales: osmdata para obtener la red peatonal desde OpenStreetMap.
+- Ruteo e isócronas: osrm (osrmIsochrone, osrmRoute con perfil foot) para calcular áreas de accesibilidad peatonal y rutas reales.
+- Visualización: leaflet para mapas interactivos, ggplot2 y ggmap para mapas estáticos.
+- Geolocalización: tidygeocoder para geocodificación de direcciones.
+- Reproducibilidad: R Markdown con salida en HTML, análisis documentado de punta a punta.
 
 > 💡 El documento incluye **mapas interactivos con Leaflet** para explorar la ubicación de Villa Jardín, los centros de salud, las isócronas y las rutas peatonales.
+
+
+## 📊 Principales hallazgos
+
+### Distribución nacional de barrios populares
+- La mayor distribución de barrios populares se concentra en la provincia de Buenos Aires, seguida por Santa Fe y Chaco.
+- La tipología predominante son los asentamientos informales.
+
+### Provincia de Buenos Aires
+- En la Zona Sur se ubican las localidades con mayor cantidad de barrios populares (más de 3.000 familias por barrio): Lomas de Zamora, seguida por Quilmes.
+- En la Zona Oeste destaca General San Martín.
+
+### Partido de Lanús
+- Lanús Oeste concentra la mayoría de barrios populares, creados en la década de 1970, con un crecimiento significativo en las décadas de 1980 y 2000.
+- Villa Jardín alberga la mayor cantidad de familias (4.950) y viviendas (4.500) del partido.
+- Aunque existen otros barrios con mayor superficie, Villa Jardín presenta la mayor densidad de población (se infiere del cociente superficie/cantidad de viviendas).
+
+### Accesibilidad a centros de salud
+- Villa Jardín cuenta con 6 centros o unidades sanitarias a menos de 20 minutos de caminata.
+- Más cercano: Unidad de Salud Villa Jardín (Emilio Castro 3823) — 2,82 minutos / 212 metros.
+- Más lejano: Centro de Salud Villa Giardino (Armenia 3114) — 1,31 km / ~18 minutos a pie.
+- La duración promedio del recorrido es de 10,64 minutos y la distancia promedio de 0,79 km.
+
+## 💡 Impacto y recomendaciones
+
+- Priorización de intervenciones: los resultados permiten identificar qué sectores de Villa Jardín tienen peor accesibilidad peatonal y priorizar allí mejoras de infraestructura (veredas, cruces, iluminación) o la apertura de nuevos puntos de atención.
+- Replicabilidad: la metodología es replicable a otros barrios populares del conurbano y a otros servicios (educación, transporte, seguridad).
+- Planificación sanitaria: el análisis cuantifica la barrera de distancia/tiempo a la que se enfrenta la población, insumo directo para decisiones de localización de servicios de salud.
+
+## 🧠 Competencias demostradas
+
+- Integración de datos geoespaciales heterogéneos: ReNaBap (GeoPackage), establecimientos de salud (CSV), OpenStreetMap (API).
+- Análisis espacial aplicado: isócronas peatonales, ruteo con OSRM, cálculo de distancias y tiempos reales.
+- Visualización interactiva: mapas Leaflet para exploración de resultados.
+- Reproducibilidad: análisis documentado en R Markdown, con código y datos disponibles.
+- Traducción de resultados a recomendaciones: de hallazgos cuantitativos a insumos para la toma de decisiones.
 
 ## 📁 Estructura del repositorio
 
@@ -77,43 +95,17 @@ accesibilidad-villa-jardin-lanus/
 
 👉 [Hacé clic acá para ver el trabajo renderizado](https://siguax.github.io/accesibilidad-villa-jardin-lanus/Proyecto_Final_Ciencia_Datos_II.html)
 
-## 🛠️ Cómo visualizar el proyecto
+## 🛠️ Cómo reproducir el análisis
 
 1. Descargá o cloná este repositorio:
    ```bash
    git clone https://github.com/Siguax/accesibilidad-villa-jardin-lanus.git
    cd accesibilidad-villa-jardin-lanus
    ```
-2. Abrí el archivo **`Proyecto_Final_Ciencia_Datos_II.html`** en cualquier navegador web (Chrome, Firefox, Edge).
-   - No necesitás instalar R para ver los resultados.
 
-3. Si querés reproducir el análisis, abrí el archivo Proyecto_Final_Ciencia_Datos_II.Rmd en RStudio y ejecutá **Knit**.
+2. Para ver los resultados: abrí Proyecto_Final_Ciencia_Datos_II.html en cualquier navegador (Chrome, Firefox, Edge). No necesitás instalar R.
 
-## 📊 Principales hallazgos
-
-### Distribución nacional de barrios populares
-- La mayor distribución de barrios populares se concentra en la provincia de Buenos Aires, seguida por Santa Fe y Chaco. La tipología predominante son los asentamientos informales.
-
-### Provincia de Buenos Aires
-- En la Zona Sur se ubican las localidades con mayor cantidad de barrios populares (más de 3.000 familias por barrio): Lomas de Zamora, seguida por Quilmes. En la Zona Oeste destaca General San Martín.
-
-### Partido de Lanús
-- Lanús Oeste concentra la mayoría de barrios populares, creados en la década de 1970, con un crecimiento significativo en las décadas de 1980 y 2000.
-- Villa Jardín alberga la mayor cantidad de familias (4.950) y viviendas (4.500) del partido. Aunque existen otros barrios con mayor superficie, Villa Jardín presenta la mayor densidad de población (se infiere del cociente superficie/cantidad de viviendas).
-
-### Accesibilidad a centros de salud
-- Villa Jardín cuenta con 6 centros o unidades sanitarias a menos de 20 minutos de caminata.
-- Más cercano: Unidad de Salud Villa Jardín (Emilio Castro 3823) — 2,82 minutos / 212 metros.
-- Más lejano: Centro de Salud Villa Giardino (Armenia 3114) — 1,31 km / ~18 minutos a pie.
-- La duración promedio del recorrido es de 10,64 minutos y la distancia promedio de 0,79 km.
-
-## 📚 Temas del curso aplicados
-
-- Información geográfica y mapas.
-- Análisis y geoprocesamiento de datos.
-- Detección de patrones espaciales y temporales.
-- Descarga de datos espaciales de repositorios online.
-- Geolocalización de información y análisis de movimientos en la ciudad.
+3. Para reproducir el análisis: abrí Proyecto_Final_Ciencia_Datos_II.Rmd en RStudio y ejecutá Knit.
 
 ## 📄 Licencia
 Distribuido bajo la licencia **MIT**. Consultá [`LICENSE`](LICENSE) para más detalles.
